@@ -1,0 +1,61 @@
+[
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\magic_gen\\windows\\x64\\release\\tools\\magic_gen.cpp.obj", "tools\\magic_gen.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "tools\\magic_gen.cpp"
+},
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/Iengine", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\bermuda_tests\\windows\\x64\\release\\tests\\test_bitboard.cpp.obj", "tests\\test_bitboard.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "tests\\test_bitboard.cpp"
+},
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/Iengine", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\bermuda_tests\\windows\\x64\\release\\tests\\test_movegen.cpp.obj", "tests\\test_movegen.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "tests\\test_movegen.cpp"
+},
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/Iengine", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\bermuda_tests\\windows\\x64\\release\\tests\\test_perft.cpp.obj", "tests\\test_perft.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "tests\\test_perft.cpp"
+},
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/Iengine", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\bermuda_tests\\windows\\x64\\release\\tests\\test_position.cpp.obj", "tests\\test_position.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "tests\\test_position.cpp"
+},
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/Iengine", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\bermuda_tests\\windows\\x64\\release\\tests\\test_types.cpp.obj", "tests\\test_types.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "tests\\test_types.cpp"
+},
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/Iengine", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\bermuda_tests\\windows\\x64\\release\\tests\\main.cpp.obj", "tests\\main.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "tests\\main.cpp"
+},
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/Iengine", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\bermuda_tests\\windows\\x64\\release\\tests\\catch_amalgamated.cpp.obj", "tests\\catch_amalgamated.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "tests\\catch_amalgamated.cpp"
+},
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/Iengine", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\bermuda_engine\\windows\\x64\\release\\engine\\bitboard.cpp.obj", "engine\\bitboard.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "engine\\bitboard.cpp"
+},
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/Iengine", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\bermuda_engine\\windows\\x64\\release\\engine\\movegen.cpp.obj", "engine\\movegen.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "engine\\movegen.cpp"
+},
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/Iengine", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\bermuda_engine\\windows\\x64\\release\\engine\\perft.cpp.obj", "engine\\perft.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "engine\\perft.cpp"
+},
+{
+  "directory": "c:\\Users\\gmicp\\Desktop\\Steve Docs\\Projects\\ChessEngines\\Bermuda",
+  "arguments": ["C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\HostX64\\x64\\cl.exe", "/c", "/nologo", "/O2", "/std:c++17", "/Iengine", "/D_CRT_SECURE_NO_WARNINGS", "/EHsc", "/DNDEBUG", "/Fobuild\\.objs\\bermuda_engine\\windows\\x64\\release\\engine\\position.cpp.obj", "engine\\position.cpp", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um", "-imsvc", "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\winrt", "-imsvc", "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\include"],
+  "file": "engine\\position.cpp"
+}]
