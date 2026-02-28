@@ -78,7 +78,7 @@ enum Colour : ui8 {
 
 // Colour utilities
 inline Colour flip(Colour c) { return (Colour)(c ^ 1); }
-inline int pawn_push_dir(Colour c) { return c == WHITE ? 8 : -8; }
+inline i32 pawn_push_dir(Colour c) { return c == WHITE ? 8 : -8; }
 
 // ============================================================================
 // Piece Types & Pieces
@@ -187,14 +187,14 @@ enum CastlingRight : ui8 {
 // ============================================================================
 
 // Count set bits (population count)
-inline int popcount(Bitboard b) {
+inline i32 popcount(Bitboard b) {
 #if defined(_MSC_VER)
   return __popcnt64(b);
 #elif defined(__GNUC__) || defined(__clang__)
   return __builtin_popcountll(b);
 #else
   // Fallback: count bits manually
-  int count = 0;
+  i32 count = 0;
   while (b) {
     count += b & 1;
     b >>= 1;

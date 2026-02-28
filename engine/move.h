@@ -102,7 +102,7 @@ constexpr Move NULL_MOVE = Move();
 // maximum number of legal moves in any chess position (~218 is the known max).
 
 struct MoveList {
-    static constexpr int MAX_MOVES = 256;
+    static constexpr i32 MAX_MOVES = 256;
 
     // -------------------------------------------------------------------------
     // Mutation
@@ -139,11 +139,11 @@ struct MoveList {
     // Access
     // -------------------------------------------------------------------------
 
-    int  size()                    const { return count; }
+    i32  size()                    const { return count; }
     bool empty()                   const { return count == 0; }
 
-    Move&       operator[](int i)        { return moves[i]; }
-    const Move& operator[](int i) const  { return moves[i]; }
+    Move&       operator[](i32 i)        { return moves[i]; }
+    const Move& operator[](i32 i) const  { return moves[i]; }
 
     Move*       begin()       { return moves; }
     Move*       end()         { return moves + count; }
@@ -152,5 +152,5 @@ struct MoveList {
 
 private:
     Move moves[MAX_MOVES];
-    int  count = 0;
+    i32  count = 0;
 };

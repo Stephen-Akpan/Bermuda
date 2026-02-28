@@ -68,13 +68,13 @@ static Bitboard king_moves(Square sq) {
 
 static Bitboard bishop_blocker_mask(Square sq) {
   Bitboard b = 0;
-  int f = file(sq);
-  int r = rank(sq);
+  i32 f = file(sq);
+  i32 r = rank(sq);
 
-  for (int nf = f+1, nr = r+1; nf <= 6 && nr <= 6; nf++, nr++) b |= 1ULL << make_square(nf, nr);
-  for (int nf = f-1, nr = r+1; nf >= 1 && nr <= 6; nf--, nr++) b |= 1ULL << make_square(nf, nr);
-  for (int nf = f+1, nr = r-1; nf <= 6 && nr >= 1; nf++, nr--) b |= 1ULL << make_square(nf, nr);
-  for (int nf = f-1, nr = r-1; nf >= 1 && nr >= 1; nf--, nr--) b |= 1ULL << make_square(nf, nr);
+  for (i32 nf = f+1, nr = r+1; nf <= 6 && nr <= 6; nf++, nr++) b |= 1ULL << make_square(nf, nr);
+  for (i32 nf = f-1, nr = r+1; nf >= 1 && nr <= 6; nf--, nr++) b |= 1ULL << make_square(nf, nr);
+  for (i32 nf = f+1, nr = r-1; nf <= 6 && nr >= 1; nf++, nr--) b |= 1ULL << make_square(nf, nr);
+  for (i32 nf = f-1, nr = r-1; nf >= 1 && nr >= 1; nf--, nr--) b |= 1ULL << make_square(nf, nr);
 
   return b;
 }

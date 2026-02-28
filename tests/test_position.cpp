@@ -1,14 +1,16 @@
 #include "catch_amalgamated.hpp"
 #include "position.h"
 #include "bitboard.h"
+#include "zobrist.h"
 
 #include <iostream>
 
 // Helper to initialize bitboard tables before tests that need them
 inline void init_bb() {
   static bool initialized = false;
-  if (!initialized) {
+  if (initialized == false) {
     BB::init();
+    Zobrist::init();
     initialized = true;
   }
 }
@@ -253,8 +255,8 @@ TEST_CASE("piece_on: empty squares return NO_PIECE", "[piece_on]") {
     Position pos = startpos();
 
     // Ranks 3-6 should all be empty in the starting position
-    for (int r = 2; r <= 5; r++) {
-        for (int f = 0; f < 8; f++) {
+    for (i32 r = 2; r <= 5; r++) {
+        for (i32 f = 0; f < 8; f++) {
             Square sq = make_square((ui8)f, (ui8)r);
             REQUIRE(pos.piece_on(sq) == NO_PIECE);
             REQUIRE(pos.empty(sq));
@@ -265,7 +267,7 @@ TEST_CASE("piece_on: empty squares return NO_PIECE", "[piece_on]") {
 TEST_CASE("piece_on: all pawns on correct ranks", "[piece_on]") {
     Position pos = startpos();
 
-    for (int f = 0; f < 8; f++) {
+    for (i32 f = 0; f < 8; f++) {
         REQUIRE(pos.piece_on(make_square((ui8)f, 1)) == WHITE_PAWN);
         REQUIRE(pos.piece_on(make_square((ui8)f, 6)) == BLACK_PAWN);
     }
@@ -344,7 +346,7 @@ TEST_CASE("is_attacked_by: starting position back rank squares not attacked", "[
     Position pos = startpos();
 
     // White's back rank is not attacked by black in the starting position
-    for (int f = 0; f < 8; f++) {
+    for (i32 f = 0; f < 8; f++) {
         Square sq = make_square((ui8)f, 0);
         REQUIRE_FALSE(pos.is_attacked_by(sq, BLACK));
     }
@@ -356,7 +358,7 @@ TEST_CASE("is_attacked_by: white pawns attack rank 3 in starting position", "[at
     // Every square on rank 3 (index 2) is attacked by a white pawn
     // (each pawn on rank 2 attacks two squares on rank 3)
     Bitboard rank3_attacked = 0;
-    for (int f = 0; f < 8; f++) {
+    for (i32 f = 0; f < 8; f++) {
         Square sq = make_square((ui8)f, 2);
         if (pos.is_attacked_by(sq, WHITE))
             rank3_attacked |= BB::square_bb(sq);

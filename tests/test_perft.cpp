@@ -1,11 +1,13 @@
 #include "catch_amalgamated.hpp"
 #include "perft.h"
 #include "position.h"
+#include "zobrist.h"
 
 inline void init_bb() {
   static bool initialized = false;
-  if (!initialized) {
+  if (initialized == false) {
     BB::init();
+    Zobrist::init();
     initialized = true;
   }
 }
@@ -14,7 +16,7 @@ inline void init_bb() {
 // Helpers
 // ============================================================================
 
-static Perft::Result run(const std::string& fen, int depth) {
+static Perft::Result run(const std::string& fen, i32 depth) {
     init_bb();
     Position pos = Position::from_fen(fen);
     return Perft::perft(pos, depth);

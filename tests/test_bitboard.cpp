@@ -1,13 +1,14 @@
+#include "catch_amalgamated.hpp"
 #include "bitboard.h"
 #include "types.h"
-#include "catch_amalgamated.hpp"
+#include "zobrist.h"
 
 // Helper to initialize bitboard tables before tests that need them
 inline void init_bb() {
   static bool initialized = false;
-  if (!initialized) {
+  if (initialized == false) {
     BB::init();
-    assert(BB::bishop_attack(e4, 0ULL) & (1ULL << b1));
+    Zobrist::init();
     initialized = true;
   }
 }
@@ -123,7 +124,7 @@ TEST_CASE("SquareUtilities / MakeSquare") {
 }
 
 TEST_CASE("SquareUtilities / RoundTrip") {
-  for (int sq = 0; sq < 64; sq++) {
+  for (i32 sq = 0; sq < 64; sq++) {
     Square s = (Square)sq;
     ui8 f = file(s);
     ui8 r = rank(s);

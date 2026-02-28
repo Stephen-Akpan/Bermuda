@@ -17,19 +17,19 @@ static void push_all(MoveList& list, Square from, Bitboard targets) {
 }
 
 // Push all moves from a shifted pawn bitboard where 'to - delta = from'.
-static void push_pawn_moves(MoveList& list, Bitboard targets, int delta) {
+static void push_pawn_moves(MoveList& list, Bitboard targets, i32 delta) {
     while (targets) {
         Square to   = (Square)pop_lsb(targets);
-        Square from = (Square)((int)to - delta);
+        Square from = (Square)((i32)to - delta);
         list.push(from, to);
     }
 }
 
 // Push all promotions from a shifted pawn bitboard where 'to - delta = from'.
-static void push_pawn_promos(MoveList& list, Bitboard targets, int delta) {
+static void push_pawn_promos(MoveList& list, Bitboard targets, i32 delta) {
     while (targets) {
         Square to   = (Square)pop_lsb(targets);
-        Square from = (Square)((int)to - delta);
+        Square from = (Square)((i32)to - delta);
         list.push_promo(from, to);
     }
 }
@@ -52,12 +52,12 @@ static void generate_pawn_moves(const Position& pos, MoveList& list, bool captur
     const Bitboard start_rank    = (us == WHITE) ? BB::RANK_2 : BB::RANK_7;
 
     // Push directions
-    const int push_delta  = (us == WHITE) ? 8  : -8;
-    const int push2_delta = (us == WHITE) ? 16 : -16;
+    const i32 push_delta  = (us == WHITE) ? 8  : -8;
+    const i32 push2_delta = (us == WHITE) ? 16 : -16;
 
     // Attack deltas: left and right relative to direction of travel
-    const int atk_left_delta  = (us == WHITE) ? 7  : -9;
-    const int atk_right_delta = (us == WHITE) ? 9  : -7;
+    const i32 atk_left_delta  = (us == WHITE) ? 7  : -9;
+    const i32 atk_right_delta = (us == WHITE) ? 9  : -7;
 
     if (!captures_only) {
         // -------------------------------------------------------------------------

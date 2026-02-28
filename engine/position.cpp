@@ -15,17 +15,24 @@ static constexpr ui8 castling_rights_mask[64] = {
     ~BLACK_OOO, 15, 15, 15, ~(BLACK_OO | BLACK_OOO), 15, 15, ~BLACK_OO
 };
 
+static bool ep_is_capturable(const Position& pos, Square ep_sq) {
+    if (ep_sq == NO_SQUARE) return false;
+    Colour them = flip(pos.side_to_move());
+    Bitboard ep_attackers = BB::pawn_attacks(BB::square_bb(ep_sq), them) & pos.pieces(pos.side_to_move(), PAWN);
+    return ep_attackers != 0;
+}
+
 // ============================================================================
 // Internal Helpers
 // ============================================================================
 
 void Position::clear() {
-    for (int c = 0; c < 2; c++) {
+    for (i32 c = 0; c < 2; c++) {
         occupancy[c] = 0;
-        for (int pt = 0; pt < 6; pt++)
+        for (i32 pt = 0; pt < 6; pt++)
             piece_bb[c][pt] = 0;
     }
-    for (int sq = 0; sq < 64; sq++)
+    for (i32 sq = 0; sq < 64; sq++)
         board[sq] = NO_PIECE;
 
     stm             = WHITE;
@@ -33,6 +40,7 @@ void Position::clear() {
     castling_right = NO_CASTLING;
     halfmove_clock  = 0;
     fullmove_number = 1;
+    hash_key = 0;
 }
 
 void Position::put_piece(Piece p, Square sq) {
@@ -109,14 +117,13 @@ Position Position::from_fen(const std::string& fen) {
 
     std::istringstream ss(fen);
     std::string token;
-
-    // -------------------------------------------------------------------------
+ 
     // Field 1: Piece placement
-    // -------------------------------------------------------------------------
+ 
     ss >> token;
 
-    int rank = 7;  // FEN starts from rank 8
-    int file = 0;
+    i32 rank = 7;  // FEN starts from rank 8
+    i32 file = 0;
 
     for (char c : token) {
         if (c == '/') {
@@ -153,18 +160,16 @@ Position Position::from_fen(const std::string& fen) {
     if (rank != 0) {
         throw std::invalid_argument("Invalid FEN: expected 8 ranks, got " + std::to_string(8 - rank));
     }
-
-    // -------------------------------------------------------------------------
+ 
     // Field 2: Side to move
-    // -------------------------------------------------------------------------
+ 
     ss >> token;
     if (token == "w")      pos.stm = WHITE;
     else if (token == "b") pos.stm = BLACK;
     else throw std::invalid_argument("Invalid FEN side to move: " + token);
 
-    // -------------------------------------------------------------------------
     // Field 3: Castling rights
-    // -------------------------------------------------------------------------
+ 
     ss >> token;
     pos.castling_right = NO_CASTLING;
 
@@ -181,10 +186,9 @@ Position Position::from_fen(const std::string& fen) {
             }
         }
     }
-
-    // -------------------------------------------------------------------------
+ 
     // Field 4: En passant square
-    // -------------------------------------------------------------------------
+ 
     ss >> token;
     if (token == "-") {
         pos.ep_sq = NO_SQUARE;
@@ -199,19 +203,20 @@ Position Position::from_fen(const std::string& fen) {
         pos.ep_sq = make_square(ep_file, ep_rank);
     }
 
-    // -------------------------------------------------------------------------
     // Field 5: Halfmove clock
-    // -------------------------------------------------------------------------
+ 
     if (ss >> token) {
         pos.halfmove_clock = (ui8)std::stoi(token);
     }
-
-    // -------------------------------------------------------------------------
+ 
     // Field 6: Fullmove number
-    // -------------------------------------------------------------------------
+ 
     if (ss >> token) {
         pos.fullmove_number = (ui16)std::stoi(token);
     }
+
+    // Field 7: Hash
+    pos.hash_key = Zobrist::compute(pos.piece_bb, pos.stm, pos.castling_right, pos.ep_sq);
 
     return pos;
 }
@@ -222,14 +227,13 @@ Position Position::from_fen(const std::string& fen) {
 
 std::string Position::to_fen() const {
     std::ostringstream ss;
-
-    // -------------------------------------------------------------------------
+ 
     // Field 1: Piece placement
-    // -------------------------------------------------------------------------
-    for (int r = 7; r >= 0; r--) {
-        int empty_count = 0;
+ 
+    for (i32 r = 7; r >= 0; r--) {
+        i32 empty_count = 0;
 
-        for (int f = 0; f < 8; f++) {
+        for (i32 f = 0; f < 8; f++) {
             Square sq = make_square((ui8)f, (ui8)r);
             Piece  p  = board[sq];
 
@@ -264,14 +268,12 @@ std::string Position::to_fen() const {
         if (r > 0) ss << '/';
     }
 
-    // -------------------------------------------------------------------------
     // Field 2: Side to move
-    // -------------------------------------------------------------------------
+ 
     ss << ' ' << (stm == WHITE ? 'w' : 'b');
-
-    // -------------------------------------------------------------------------
+ 
     // Field 3: Castling rights
-    // -------------------------------------------------------------------------
+ 
     ss << ' ';
     if (castling_right == NO_CASTLING) {
         ss << '-';
@@ -281,10 +283,9 @@ std::string Position::to_fen() const {
         if (castling_right & BLACK_OO)  ss << 'k';
         if (castling_right & BLACK_OOO) ss << 'q';
     }
-
-    // -------------------------------------------------------------------------
+ 
     // Field 4: En passant square
-    // -------------------------------------------------------------------------
+ 
     ss << ' ';
     if (ep_sq == NO_SQUARE) {
         ss << '-';
@@ -293,11 +294,10 @@ std::string Position::to_fen() const {
         ss << (char)('1' + rank(ep_sq));
     }
 
-    // -------------------------------------------------------------------------
     // Fields 5 & 6: Halfmove clock and fullmove number
-    // -------------------------------------------------------------------------
-    ss << ' ' << (int)halfmove_clock;
-    ss << ' ' << (int)fullmove_number;
+ 
+    ss << ' ' << (i32)halfmove_clock;
+    ss << ' ' << (i32)fullmove_number;
 
     return ss.str();
 }
@@ -377,6 +377,7 @@ UndoInfo Position::make_move(Move m) {
     undo.castling_rights = castling_right;
     undo.halfmove_clock = halfmove_clock;
     undo.captured = NO_PIECE;
+    undo.hash_key = hash_key;
 
     const Square from = m.from();
     const Square to = m.to();
@@ -384,9 +385,16 @@ UndoInfo Position::make_move(Move m) {
     const Colour us = stm;
     const Colour them = flip(stm);
 
-    // ---------------------------------------------------------------------
+    // Update hash
+    hash_key ^= Zobrist::piece_keys[piece][from];
+    hash_key ^= Zobrist::castling_keys[castling_right];
+    if (ep_sq != NO_SQUARE) {
+        Bitboard attackers = BB::pawn_attacks(BB::square_bb(ep_sq), them) & piece_bb[us][PAWN];
+        if (attackers)
+            hash_key ^= Zobrist::ep_keys[file(ep_sq)];
+    }
+
     // Halfmove clock: reset on pawn move or capture, else increment
-    // ---------------------------------------------------------------------
     if (type_of(piece) == PAWN || board[to] != NO_PIECE) {
         halfmove_clock = 0;
     } else {
@@ -397,15 +405,20 @@ UndoInfo Position::make_move(Move m) {
         case NORMAL: {
             // Save captured piece if any
             undo.captured = board[to];
-            if (undo.captured != NO_PIECE)
+            if (undo.captured != NO_PIECE) {
                 remove_piece(to);
+                hash_key ^= Zobrist::piece_keys[undo.captured][to];
+            }
             move_piece(from, to);
+            hash_key ^= Zobrist::piece_keys[piece][to];
             break;
         }
         case PROMOTION: {
             undo.captured = board[to];
-            if (undo.captured != NO_PIECE)
+            if (undo.captured != NO_PIECE) {
                 remove_piece(to);
+                hash_key ^= Zobrist::piece_keys[undo.captured][to];
+            }
             
             // Remove the pawn
             remove_piece(from);
@@ -419,15 +432,20 @@ UndoInfo Position::make_move(Move m) {
             case PROMO_QUEEN: promo_type = QUEEN; break;
             default: promo_type = QUEEN; break;
             }
+
+            Piece promo_piece = make_piece(us, promo_type);
             put_piece(make_piece(us, promo_type), to);
+            hash_key ^= Zobrist::piece_keys[promo_piece][to];
             break;
         }
         case EN_PASSANT: {
             // captured pawn is not on 'to' but one rank behind it
             Square cap_sq = (us == WHITE) ? Square(to - 8) : Square(to + 8);
             undo.captured = board[cap_sq];
+            hash_key ^= Zobrist::piece_keys[undo.captured][cap_sq];
             remove_piece(cap_sq);
             move_piece(from, to);
+            hash_key ^= Zobrist::piece_keys[piece][to];
             break;
         }
         case CASTLING: {
@@ -439,8 +457,13 @@ UndoInfo Position::make_move(Move m) {
             else if (to == g8) { rook_from = h8; rook_to = f8; } // Black kingside
             else { rook_from = a8; rook_to = d8; } // Black queenside
 
+            Piece rook = board[rook_from];
+            hash_key ^= Zobrist::piece_keys[rook][rook_from];
+            hash_key ^= Zobrist::piece_keys[rook][rook_to];
+
             move_piece(from, to);
             move_piece(rook_from, rook_to);
+            hash_key ^= Zobrist::piece_keys[piece][to];
             break;
         }
     }
@@ -452,12 +475,23 @@ UndoInfo Position::make_move(Move m) {
         // Double pawn push - set en pessant square
         i32 diff = (i32)to - (i32)from;
         if (diff == 16 || diff == -16) {
-            ep_sq = Square(from + diff / 2);
+            Square new_ep = Square(from + diff / 2);
+            Bitboard attackers = BB::pawn_attacks(BB::square_bb(new_ep), us) & piece_bb[them][PAWN];
+            if (attackers) {
+                ep_sq = new_ep;
+                hash_key ^= Zobrist::ep_keys[file(new_ep)];
+            }
+            else {
+                ep_sq = new_ep;
+            }
         }
     }
 
     // Update castling rights
     castling_right &= castling_rights_mask[from] & castling_rights_mask[to];
+    hash_key ^= Zobrist::castling_keys[castling_right];
+
+    hash_key ^= Zobrist::side_key;
 
     // Update fullmove number
     if (us == BLACK)
@@ -488,13 +522,14 @@ void Position::unmake_move(Move m, const UndoInfo &undo) {
     const Square from = m.from();
     const Square to = m.to();
     const Colour us = flip(stm);
-    const Colour them = flip(them);
+    const Colour them = flip(us);
 
     // restore state
     ep_sq = undo.ep_sq;
     castling_right = undo.castling_rights;
     halfmove_clock = undo.halfmove_clock;
     stm = us;
+    hash_key = undo.hash_key;
 
     if (them == BLACK)
         fullmove_number--;
@@ -560,6 +595,33 @@ void Position::unmake_move(Move m, const UndoInfo &undo) {
     #endif
 }
 
+NullMoveUndo Position::make_null_move() {
+    NullMoveUndo undo;
+    undo.ep_sq = ep_sq;
+    undo.hash_key = hash_key;
+    undo.halfmove_clock = halfmove_clock;
+
+    if (ep_sq != NO_SQUARE) {
+        Bitboard attackers = BB::pawn_attacks(BB::square_bb(ep_sq), stm) & piece_bb[flip(stm)][PAWN];
+        if (attackers) {
+            hash_key ^= Zobrist::ep_keys[file(ep_sq)];
+        }
+    }
+    hash_key ^= Zobrist::side_key;
+    stm = flip(stm);
+    ep_sq = NO_SQUARE;
+    halfmove_clock++;
+
+    return undo;
+}
+
+void Position::unmake_null_move(const NullMoveUndo& undo) {
+    ep_sq = undo.ep_sq;
+    hash_key = undo.hash_key;
+    halfmove_clock = undo.halfmove_clock;
+    stm = flip(stm);
+}
+
 // ============================================================================
 // Debugging
 // ============================================================================
@@ -568,9 +630,9 @@ void Position::print() const {
     static const char* piece_chars = "PNBRQKpnbrqk.";
 
     std::cout << "\n";
-    for (int r = 7; r >= 0; r--) {
+    for (i32 r = 7; r >= 0; r--) {
         std::cout << (r + 1) << "  ";
-        for (int f = 0; f < 8; f++) {
+        for (i32 f = 0; f < 8; f++) {
             Square sq = make_square((ui8)f, (ui8)r);
             Piece  p  = board[sq];
 
@@ -578,7 +640,7 @@ void Position::print() const {
                 std::cout << ".";
             } else {
                 // White pieces: uppercase (0-5), black pieces: lowercase (8-13 → offset to 6-11)
-                int idx = (colour_of(p) == WHITE) ? type_of(p) : type_of(p) + 6;
+                i32 idx = (colour_of(p) == WHITE) ? type_of(p) : type_of(p) + 6;
                 std::cout << piece_chars[idx];
             }
             std::cout << ' ';
@@ -604,6 +666,6 @@ void Position::print() const {
     else std::cout << (char)('a' + file(ep_sq)) << (char)('1' + rank(ep_sq));
     std::cout << '\n';
 
-    std::cout << "Halfmove clock: " << (int)halfmove_clock << '\n';
-    std::cout << "Fullmove number: " << (int)fullmove_number << '\n';
+    std::cout << "Halfmove clock: " << (i32)halfmove_clock << '\n';
+    std::cout << "Fullmove number: " << (i32)fullmove_number << '\n';
 }

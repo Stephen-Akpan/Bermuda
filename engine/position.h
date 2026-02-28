@@ -3,6 +3,7 @@
 #include "types.h"
 #include "bitboard.h"
 #include "move.h"
+#include "zobrist.h"
 
 #include <stdexcept>
 
@@ -13,6 +14,13 @@ struct UndoInfo {
     Piece captured;
     Square ep_sq;
     ui8 castling_rights;
+    ui8 halfmove_clock;
+    ui64 hash_key;
+};
+
+struct NullMoveUndo {
+    Square ep_sq;
+    ui64 hash_key;
     ui8 halfmove_clock;
 };
 
@@ -28,9 +36,7 @@ public:
     // Set to standard chess starting position
     void set_startpos();
 
-    // ------------------------------------------------------
     // Piece queries
-    // ------------------------------------------------------
 
     Bitboard pieces(Colour c, PieceType pt) const {
         return piece_bb[c][pt];
@@ -93,9 +99,13 @@ public:
     UndoInfo make_move(Move m);
     void unmake_move(Move m, const UndoInfo& undo);
 
-    // ---------------------------------------------------
+    NullMoveUndo make_null_move();
+    void unmake_null_move(const NullMoveUndo& undo);
+
+    // Zobrist
+    ui64 hash() const {  return hash_key; }
+
     // Debugging
-    // ---------------------------------------------------
     void print() const; // Prints ASCII board to stdout
 private:
     Bitboard piece_bb[2][6];
@@ -107,6 +117,7 @@ private:
     ui8 castling_right;
     ui8 halfmove_clock;
     ui8 fullmove_number;
+    ui64 hash_key;
 
     void clear();
     void put_piece(Piece p, Square sq);

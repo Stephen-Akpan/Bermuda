@@ -1,7 +1,8 @@
 # Folders
 build/
-./.xmake
-./.vscode
+.xmake/
+.vscode/
+vs2022/
 
 # Prerequisites
 *.d

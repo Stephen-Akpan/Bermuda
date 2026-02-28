@@ -9,11 +9,11 @@ namespace Perft {
 // Internal recursive implementation
 // ============================================================================
 
-static void perft_recursive(Position& pos, int depth, Result& result) {
+static void perft_recursive(Position& pos, i32 depth, Result& result) {
     MoveList list;
     MoveGen::generate_moves(pos, list);
 
-    for (int i = 0; i < list.size(); i++) {
+    for (i32 i = 0; i < list.size(); i++) {
         Move m = list[i];
 
         UndoInfo undo = pos.make_move(m);
@@ -55,7 +55,7 @@ static void perft_recursive(Position& pos, int depth, Result& result) {
 // Public Interface
 // ============================================================================
 
-Result perft(Position& pos, int depth) {
+Result perft(Position& pos, i32 depth) {
     Result result;
 
     if (depth == 0) {
@@ -67,7 +67,7 @@ Result perft(Position& pos, int depth) {
     return result;
 }
 
-void divide(Position& pos, int depth) {
+void divide(Position& pos, i32 depth) {
     MoveList list;
     MoveGen::generate_moves(pos, list);
 
@@ -75,7 +75,7 @@ void divide(Position& pos, int depth) {
 
     std::cout << "\nDivide (depth " << depth << "):\n";
 
-    for (int i = 0; i < list.size(); i++) {
+    for (i32 i = 0; i < list.size(); i++) {
         Move m = list[i];
 
         UndoInfo undo = pos.make_move(m);

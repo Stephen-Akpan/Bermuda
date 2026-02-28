@@ -5,8 +5,9 @@
 
 inline void init_bb() {
   static bool initialized = false;
-  if (!initialized) {
+  if (initialized == false) {
     BB::init();
+    Zobrist::init();
     initialized = true;
   }
 }
@@ -21,9 +22,9 @@ static Position make_pos(const std::string& fen) {
 }
 
 // Count how many moves in the list match a given from/to pair
-static int count_move(const MoveList& list, Square from, Square to) {
-    int n = 0;
-    for (int i = 0; i < list.size(); i++)
+static i32 count_move(const MoveList& list, Square from, Square to) {
+    i32 n = 0;
+    for (i32 i = 0; i < list.size(); i++)
         if (list[i].from() == from && list[i].to() == to)
             n++;
     return n;
@@ -36,7 +37,7 @@ static bool has_move(const MoveList& list, Square from, Square to) {
 
 // Check whether a move with a specific flag exists
 static bool has_move(const MoveList& list, Square from, Square to, MoveFlag flag) {
-    for (int i = 0; i < list.size(); i++)
+    for (i32 i = 0; i < list.size(); i++)
         if (list[i].from() == from && list[i].to() == to && list[i].flag() == flag)
             return true;
     return false;
@@ -44,7 +45,7 @@ static bool has_move(const MoveList& list, Square from, Square to, MoveFlag flag
 
 // Check whether a promotion to a specific piece exists
 static bool has_promo(const MoveList& list, Square from, Square to, PromoPiece pp) {
-    for (int i = 0; i < list.size(); i++)
+    for (i32 i = 0; i < list.size(); i++)
         if (list[i].from() == from && list[i].to() == to
             && list[i].flag() == PROMOTION && list[i].promo() == pp)
             return true;
@@ -52,9 +53,9 @@ static bool has_promo(const MoveList& list, Square from, Square to, PromoPiece p
 }
 
 // Count total moves from a specific square
-static int count_from(const MoveList& list, Square from) {
-    int n = 0;
-    for (int i = 0; i < list.size(); i++)
+static i32 count_from(const MoveList& list, Square from) {
+    i32 n = 0;
+    for (i32 i = 0; i < list.size(); i++)
         if (list[i].from() == from)
             n++;
     return n;
@@ -176,7 +177,7 @@ TEST_CASE("movegen pawns: white pawn on rank 7 generates only promotions", "[mov
     MoveGen::generate_moves(pos, list);
 
     // Should not generate e7e6 or any non-promotion
-    for (int i = 0; i < list.size(); i++) {
+    for (i32 i = 0; i < list.size(); i++) {
         if (list[i].from() == e7)
             REQUIRE(list[i].is_promotion());
     }
@@ -569,7 +570,7 @@ TEST_CASE("movegen captures: only captures returned", "[movegen][captures]") {
     MoveGen::generate_captures(pos, list);
 
     // Every move in the list must be a capture (target must be an enemy piece)
-    for (int i = 0; i < list.size(); i++) {
+    for (i32 i = 0; i < list.size(); i++) {
         Square to = list[i].to();
         bool is_enemy = (pos.piece_on(to) != NO_PIECE
                          && pos.piece_on(to) != pos.piece_on(list[i].from()))

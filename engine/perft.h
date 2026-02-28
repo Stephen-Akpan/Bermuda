@@ -23,10 +23,10 @@ struct Result {
 };
 
 // Run perft to a given depth and return the result
-Result perft(Position& pos, int depth);
+Result perft(Position& pos, i32 depth);
 
 // Run perft and print a divide breakdown (each root move and its node count)
 // Useful for pinpointing which move is wrong when a count doesn't match
-void divide(Position& pos, int depth);
+void divide(Position& pos, i32 depth);
 
 } // namespace Perft

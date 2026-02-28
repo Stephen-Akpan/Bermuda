@@ -62,7 +62,7 @@ TEST_CASE("Square / MakeSquareFromFileRank") {
 
 TEST_CASE("Square / Consistency") {
   // Ensure all squares can be decomposed and reconstructed
-  for (int i = 0; i < 64; i++) {
+  for (i32 i = 0; i < 64; i++) {
     Square sq = (Square)i;
     ui8 f = file(sq);
     ui8 r = rank(sq);
