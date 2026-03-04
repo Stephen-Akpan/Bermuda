@@ -40,8 +40,8 @@ namespace UCI {
 // ============================================================================
 
 struct Options {
-    int  hash_mb    = 64;     // TT size in megabytes
-    int  move_overhead = 10;  // Safety buffer subtracted from time (ms)
+    i32  hash_mb    = 64;     // TT size in megabytes
+    i32  move_overhead = 10;  // Safety buffer subtracted from time (ms)
 };
 
 // Global options instance

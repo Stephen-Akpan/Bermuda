@@ -5,6 +5,7 @@
 #include "tt.h"
 #include "eval.h"
 #include "repetition.h"
+#include "nnue.h"
 #include <atomic>
 #include <chrono>
 
@@ -31,14 +32,13 @@ inline bool is_mate_score(i32 score) {
 // ============================================================================
 // Per-Ply Search Stack
 // ============================================================================
-// One entry per ply in the search tree. Extended as search goes deeper.
 
 struct Stack {
-    Move current_move;      // Move played to reach this node
-    Move killers[2];        // Killer moves at this ply
-    i32  ply;               // Distance from root
-    i32  static_eval;       // Cached static evaluation (set on first visit)
-    bool null_move_allowed;
+    Move current_move;          // Move played to reach this node
+    Move killers[2];            // Killer moves at this ply
+    i32  ply;                   // Distance from root
+    i32  static_eval;           // Cached static evaluation (set on first visit)
+    bool null_move_allowed;     // False after a null move to prevent consecutive nulls
 };
 
 // ============================================================================
@@ -60,7 +60,6 @@ struct SearchLimits {
 // ============================================================================
 // Search Info
 // ============================================================================
-// Owns all state for a single search. One instance per thread.
 
 struct SearchInfo {
     // -------------------------------------------------------------------------
@@ -72,47 +71,65 @@ struct SearchInfo {
     // -------------------------------------------------------------------------
     // Search control
     // -------------------------------------------------------------------------
-    SearchLimits    limits;
-    std::atomic<bool> stop { false };  // Set externally to abort search
+    SearchLimits      limits;
+    std::atomic<bool> stop { false };
 
     // -------------------------------------------------------------------------
     // Time management
     // -------------------------------------------------------------------------
     std::chrono::steady_clock::time_point start_time;
-    i32 allocated_time_ms = 0;  // How many ms we're allowed for this move
+
+    // Soft limit: don't start a new iteration if exceeded after one completes.
+    // Hard limit: abort immediately mid-search if exceeded.
+    // Both are 0 when there is no time constraint.
+    i32 soft_limit_ms = 0;
+    i32 hard_limit_ms = 0;
 
     // -------------------------------------------------------------------------
     // Statistics (reset each search)
     // -------------------------------------------------------------------------
-    ui64  nodes      = 0;     // Total nodes visited
-    ui64  tb_hits    = 0;     // TT hits (for hashfull reporting)
-    i32   root_depth = 0;     // Current iterative deepening depth
+    ui64  nodes      = 0;
+    ui64  tb_hits    = 0;
+    i32   root_depth = 0;
 
     // -------------------------------------------------------------------------
     // Results
     // -------------------------------------------------------------------------
-    Move  best_move;                  // Best move found so far
-    i32   best_score = -INF;          // Score for best move
+    Move  best_move;
+    i32   best_score = -INF;
 
     // Per-ply stack (+4 for safety margin from check extensions)
     Stack stack[MAX_PLY + 4];
 
     // -------------------------------------------------------------------------
+    // Principal Variation table
+    // -------------------------------------------------------------------------
+    // Triangular array: pv[ply] holds the PV from that ply to the leaf.
+    // pv_length[ply] is the index one past the last valid move in pv[ply].
+    // At the root, pv[0][0..pv_length[0]-1] is the full PV line to print.
+    Move pv[MAX_PLY][MAX_PLY];
+    i32  pv_length[MAX_PLY];
+
+    // -------------------------------------------------------------------------
     // Heuristic tables (reset each search)
     // -------------------------------------------------------------------------
 
-    // Killer moves: quiet moves that caused beta cutoffs indexed by [ply][slot]
+    // Killer moves: quiet moves that caused beta cutoffs, indexed [ply][slot]
     Move  killers[MAX_PLY][2];
 
     // History heuristic: bonus for quiet moves that caused cutoffs
     // Indexed [colour][from][to]
     i32   history[2][64][64];
 
+    // ------------------------------------------------------------------------
+    // NNUE info
+    // ------------------------------------------------------------------------
+    NNUE_Data nnue_stack[MAX_PLY + 4];
+
     // -------------------------------------------------------------------------
     // Setup
     // -------------------------------------------------------------------------
 
-    // Reset all search state for a new search
     void reset() {
         nodes      = 0;
         tb_hits    = 0;
@@ -122,39 +139,54 @@ struct SearchInfo {
         stop.store(false);
 
         for (i32 i = 0; i < MAX_PLY + 4; i++) {
-            stack[i].current_move = NULL_MOVE;
-            stack[i].killers[0]   = NULL_MOVE;
-            stack[i].killers[1]   = NULL_MOVE;
-            stack[i].ply          = i;
-            stack[i].static_eval  = 0;
+            stack[i].current_move      = NULL_MOVE;
+            stack[i].killers[0]        = NULL_MOVE;
+            stack[i].killers[1]        = NULL_MOVE;
+            stack[i].ply               = i;
+            stack[i].static_eval       = 0;
             stack[i].null_move_allowed = true;
         }
 
         for (i32 i = 0; i < MAX_PLY; i++) {
             killers[i][0] = NULL_MOVE;
             killers[i][1] = NULL_MOVE;
+            pv_length[i]  = 0;
         }
 
         for (i32 c = 0; c < 2; c++)
             for (i32 f = 0; f < 64; f++)
                 for (i32 t = 0; t < 64; t++)
                     history[c][f][t] = 0;
+        
+        for (i32 i = 0; i < MAX_PLY + 4; i++) {
+            nnue_stack[i].accu.computed_accumulation = 0;
+            nnue_stack[i].dirty_piece.dirty_num = 0;
+        }
     }
 
     // -------------------------------------------------------------------------
-    // Time management helpers
+    // Time management
     // -------------------------------------------------------------------------
 
-    // Compute allocated time based on limits and side to move
     void compute_allocated_time() {
-        if (limits.infinite || limits.movetime == 0 && limits.wtime == 0) {
-            allocated_time_ms = 0;  // no limit
+        // No time limit for infinite or ponder searches
+        if (limits.infinite || limits.ponder) {
+            soft_limit_ms = 0;
+            hard_limit_ms = 0;
             return;
         }
 
+        // Fixed movetime — soft and hard are identical
         if (limits.movetime > 0) {
-            // Fixed time per move with small overhead buffer
-            allocated_time_ms = limits.movetime - 10;
+            soft_limit_ms = limits.movetime;
+            hard_limit_ms = limits.movetime;
+            return;
+        }
+
+        // No time info provided at all — search indefinitely
+        if (limits.wtime == 0 && limits.btime == 0) {
+            soft_limit_ms = 0;
+            hard_limit_ms = 0;
             return;
         }
 
@@ -164,18 +196,24 @@ struct SearchInfo {
         i32 increment = (pos.side_to_move() == WHITE)
             ? limits.winc : limits.binc;
 
-        i32 moves_to_go = (limits.movestogo > 0)
-            ? limits.movestogo : 30;  // assume 30 moves to go in sudden death
+        // Assume 25 moves to go in sudden death (more realistic than 30)
+        i32 moves_to_go = (limits.movestogo > 0) ? limits.movestogo : 25;
 
-        // Allocate time: remaining / moves_to_go + fraction of increment
-        allocated_time_ms = (time_remaining / moves_to_go)
-                          + (increment * 3 / 4);
+        // Base allocation: time slice + most of the increment
+        i32 base = (time_remaining / moves_to_go) + (increment * 3 / 4);
 
-        // Safety cap: never use more than half remaining time
-        allocated_time_ms = std::min(allocated_time_ms, time_remaining / 2);
+        // Hard cap: never commit more than 80% of remaining time to one move
+        i32 hard_cap = time_remaining * 7 / 10;
 
-        // Minimum: at least 10ms to avoid immediate timeout
-        allocated_time_ms = std::max(allocated_time_ms, 10);
+        // Soft limit: target time per move
+        // Hard limit: 1.5x soft — allows finishing a nearly-complete iteration
+        //             before aborting, but won't let us run away
+        soft_limit_ms = min(base,         hard_cap);
+        hard_limit_ms = min(base * 3 / 2, hard_cap);
+
+        // Minimums — avoid degenerate near-zero allocations
+        soft_limit_ms = max(soft_limit_ms, 5);
+        hard_limit_ms = max(hard_limit_ms, 10);
     }
 
     i32 elapsed_ms() const {
@@ -184,9 +222,16 @@ struct SearchInfo {
             now - start_time).count();
     }
 
-    bool out_of_time() const {
-        if (allocated_time_ms == 0) return false;  // no limit
-        return elapsed_ms() >= allocated_time_ms;
+    // Exceeded soft limit: stop after the current iteration completes
+    bool past_soft_limit() const {
+        if (soft_limit_ms == 0) return false;
+        return elapsed_ms() >= soft_limit_ms;
+    }
+
+    // Exceeded hard limit: abort immediately mid-search
+    bool past_hard_limit() const {
+        if (hard_limit_ms == 0) return false;
+        return elapsed_ms() >= hard_limit_ms;
     }
 };
 
@@ -196,14 +241,10 @@ struct SearchInfo {
 
 namespace Search {
 
-// Run a full iterative deepening search.
-// Populates info.best_move and info.best_score.
-// Returns the best move found.
 Move start(SearchInfo& info);
 
-// Score adjustments for TT mate scores
-// Scores stored in TT are relative to the node, not the root.
-// These convert between the two representations.
+// Score adjustments for TT mate scores.
+// Scores in the TT are relative to the storing node; these convert to/from root.
 inline i32 score_to_tt(i32 score, i32 ply) {
     if (score >  MATE_BOUND) return score + ply;
     if (score < -MATE_BOUND) return score - ply;

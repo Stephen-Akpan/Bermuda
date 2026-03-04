@@ -2,6 +2,7 @@
 #include "movegen.h"
 #include "perft.h"
 #include "eval.h"
+#include "nnue.h"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -19,33 +20,25 @@ Options options;
 // Helpers
 // ============================================================================
 
-// Extract a token after a keyword in a UCI command line.
-// Returns empty string if keyword not found.
 static std::string token_after(const std::string& line,
                                 const std::string& keyword) {
     size_t pos = line.find(keyword);
     if (pos == std::string::npos) return "";
 
     pos += keyword.size();
-
-    // Skip whitespace
     while (pos < line.size() && line[pos] == ' ') pos++;
 
-    // Read until next space
     std::string result;
-    while (pos < line.size() && line[pos] != ' ') {
+    while (pos < line.size() && line[pos] != ' ')
         result += line[pos++];
-    }
+
     return result;
 }
 
-// Returns true if a keyword appears in the line
 static bool has_token(const std::string& line, const std::string& keyword) {
-    // Find keyword as a whole word (not substring)
     size_t pos = line.find(keyword);
     if (pos == std::string::npos) return false;
 
-    // Check it's not part of a longer word
     if (pos > 0 && line[pos - 1] != ' ') return false;
     size_t end = pos + keyword.size();
     if (end < line.size() && line[end] != ' ') return false;
@@ -53,24 +46,21 @@ static bool has_token(const std::string& line, const std::string& keyword) {
     return true;
 }
 
-// Parse an integer token after a keyword, returning default_val if not found
-static int parse_int(const std::string& line,
+static i32 parse_int(const std::string& line,
                      const std::string& keyword,
-                     int default_val = 0) {
+                     i32 default_val = 0) {
     std::string tok = token_after(line, keyword);
     if (tok.empty()) return default_val;
     try { return std::stoi(tok); }
     catch (...) { return default_val; }
 }
 
-// Find a UCI move string in the position's legal move list
 static Move find_move(const Position& pos, const std::string& uci) {
     MoveList list;
     MoveGen::generate_moves(pos, list);
 
-    for (int i = 0; i < list.size(); i++) {
+    for (i32 i = 0; i < list.size(); i++) {
         if (list[i].to_string() == uci) {
-            // Verify legality
             UndoInfo undo = const_cast<Position&>(pos).make_move(list[i]);
             bool legal = !pos.is_attacked_by(
                 pos.king_square(flip(pos.side_to_move())),
@@ -88,11 +78,10 @@ static Move find_move(const Position& pos, const std::string& uci) {
 // ============================================================================
 
 static void cmd_uci() {
-    std::cout << "id name Bermuda\n";
-    std::cout << "id author AKPAN Stephen\n";
+    std::cout << "id name Bermuda 0.0.1\n";
+    std::cout << "id author AKPAN Stephen & DAUDA Mishael\n";
     std::cout << "\n";
 
-    // Configurable options
     std::cout << "option name Hash type spin"
               << " default " << options.hash_mb
               << " min 1"
@@ -107,6 +96,8 @@ static void cmd_uci() {
 
     std::cout << "option name Clear Hash type button\n";
 
+    std::cout << "option name EvalFile type string default network.nnue\n";
+
     std::cout << "\nuciok\n";
 }
 
@@ -115,8 +106,6 @@ static void cmd_uci() {
 // ============================================================================
 
 void cmd_setoption(const std::string& line) {
-    // Format: setoption name <id> [value <x>]
-    // Extract name
     size_t name_pos = line.find("name ");
     if (name_pos == std::string::npos) return;
     name_pos += 5;
@@ -132,19 +121,17 @@ void cmd_setoption(const std::string& line) {
         name_str = line.substr(name_pos);
     }
 
-    // Trim whitespace
     while (!name_str.empty()  && name_str.back()  == ' ') name_str.pop_back();
     while (!value_str.empty() && value_str.back() == ' ') value_str.pop_back();
 
-    // Normalise to lowercase for case-insensitive comparison
     std::string name_lower = name_str;
     std::transform(name_lower.begin(), name_lower.end(),
                    name_lower.begin(), ::tolower);
 
     if (name_lower == "hash") {
         try {
-            int mb = std::stoi(value_str);
-            mb = std::max(1, std::min(mb, 65536));
+            i32 mb = std::stoi(value_str);
+            mb = max(1, min(mb, 65536));
             options.hash_mb = mb;
             TT.resize(mb);
             std::cout << "info string Hash set to " << mb << " MB\n";
@@ -154,14 +141,17 @@ void cmd_setoption(const std::string& line) {
     }
     else if (name_lower == "moveoverhead") {
         try {
-            int ms = std::stoi(value_str);
-            ms = std::max(0, std::min(ms, 5000));
+            i32 ms = std::stoi(value_str);
+            ms = max(0, min(ms, 5000));
             options.move_overhead = ms;
         } catch (...) {}
     }
     else if (name_lower == "clear hash") {
         TT.clear();
         std::cout << "info string Hash cleared\n";
+    }
+    else if (name_lower == "evalfile") {
+        Eval::init(value_str);
     }
     else {
         std::cerr << "info string Unknown option: " << name_str << "\n";
@@ -180,7 +170,6 @@ void cmd_position(SearchInfo& info, const std::string& line) {
     if (has_token(line, "startpos")) {
         fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     } else {
-        // Extract FEN string between "fen" and "moves" (or end of line)
         size_t fen_pos = line.find("fen ");
         if (fen_pos == std::string::npos) {
             std::cerr << "info string Invalid position command\n";
@@ -189,14 +178,12 @@ void cmd_position(SearchInfo& info, const std::string& line) {
         fen_pos += 4;
 
         size_t moves_pos = line.find(" moves ");
-        if (moves_pos != std::string::npos) {
+        if (moves_pos != std::string::npos)
             fen = line.substr(fen_pos, moves_pos - fen_pos);
-        } else {
+        else
             fen = line.substr(fen_pos);
-        }
     }
 
-    // Set up the position from FEN
     try {
         info.pos = Position::from_fen(fen);
     } catch (const std::exception& e) {
@@ -204,10 +191,8 @@ void cmd_position(SearchInfo& info, const std::string& line) {
         return;
     }
 
-    // Push the initial position hash
     info.rep_table.push(info.pos.hash());
 
-    // Apply moves if present
     size_t moves_pos = line.find(" moves ");
     if (moves_pos == std::string::npos) return;
 
@@ -245,15 +230,18 @@ void cmd_go(SearchInfo& info, const std::string& line) {
     limits.binc      = parse_int(line, "binc",      0);
     limits.movestogo = parse_int(line, "movestogo", 0);
 
-    // Apply move overhead to time limits
-    if (limits.wtime > 0) limits.wtime -= options.move_overhead;
-    if (limits.btime > 0) limits.btime -= options.move_overhead;
-    if (limits.movetime > 0) limits.movetime -= options.move_overhead;
+    // Subtract move overhead from time limits before handing to the search.
+    // Clamp to 1ms minimum — never let overhead push remaining time to zero
+    // or negative, which would cause compute_allocated_time to misbehave.
+    if (limits.wtime > 0)
+        limits.wtime = max(1, limits.wtime - options.move_overhead);
+    if (limits.btime > 0)
+        limits.btime = max(1, limits.btime - options.move_overhead);
 
-    // Clamp — don't let overhead push time negative
-    limits.wtime    = std::max(limits.wtime,    1);
-    limits.btime    = std::max(limits.btime,    1);
-    limits.movetime = std::max(limits.movetime, 0);
+    // For movetime, overhead is already the only buffer — clamp to 0
+    // since compute_allocated_time uses it directly as the hard limit.
+    if (limits.movetime > 0)
+        limits.movetime = max(0, limits.movetime - options.move_overhead);
 
     info.limits = limits;
 
@@ -280,17 +268,8 @@ static void cmd_display(const SearchInfo& info) {
     info.pos.print();
 }
 
-static void cmd_eval(const SearchInfo& info) {
-    int score = Eval::evaluate(info.pos);
-    std::cout << "info string Static eval: " << score
-              << " cp (side to move perspective)\n";
-    std::cout << "info string White perspective: "
-              << (info.pos.side_to_move() == WHITE ? score : -score)
-              << " cp\n";
-}
-
 static void cmd_perft(SearchInfo& info, const std::string& line) {
-    int depth = parse_int(line, "perft", 1);
+    i32 depth = parse_int(line, "perft", 1);
     Perft::divide(info.pos, depth);
 }
 
@@ -299,10 +278,10 @@ static void cmd_perft(SearchInfo& info, const std::string& line) {
 // ============================================================================
 
 void loop() {
-    // Initialise engine
     BB::init();
     Zobrist::init();
     TT.resize(options.hash_mb);
+    Eval::init("network.nnue");
 
     SearchInfo info;
     info.pos.set_startpos();
@@ -312,14 +291,12 @@ void loop() {
     std::cout << "Bermuda Chess Engine\n";
 
     while (std::getline(std::cin, line)) {
-        // Trim trailing whitespace
         while (!line.empty() && (line.back() == '\r' || line.back() == '\n'
                || line.back() == ' '))
             line.pop_back();
 
         if (line.empty()) continue;
 
-        // Dispatch commands
         if (line == "uci") {
             cmd_uci();
         }
@@ -344,9 +321,6 @@ void loop() {
         else if (line == "d") {
             cmd_display(info);
         }
-        else if (line == "eval") {
-            cmd_eval(info);
-        }
         else if (line.substr(0, 5) == "perft") {
             cmd_perft(info, line);
         }
@@ -357,7 +331,6 @@ void loop() {
             std::cerr << "info string Unknown command: " << line << "\n";
         }
 
-        // Flush after every response
         std::cout.flush();
     }
 }
