@@ -107,21 +107,39 @@
   <ItemGroup>
     <ClCompile Include="..\..\engine\bitboard.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\engine\eval.cpp">
+    </ClCompile>
     <ClCompile Include="..\..\engine\movegen.cpp">
     </ClCompile>
     <ClCompile Include="..\..\engine\perft.cpp">
     </ClCompile>
     <ClCompile Include="..\..\engine\position.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\engine\search.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\engine\tt.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\engine\uci.cpp">
+    </ClCompile>
+    <ClCompile Include="..\..\engine\zobrist.cpp">
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\engine\bitboard.h" />
+    <ClInclude Include="..\..\engine\eval.h" />
+    <ClInclude Include="..\..\engine\external\incbin.h" />
     <ClInclude Include="..\..\engine\magics.h" />
     <ClInclude Include="..\..\engine\move.h" />
     <ClInclude Include="..\..\engine\movegen.h" />
     <ClInclude Include="..\..\engine\perft.h" />
     <ClInclude Include="..\..\engine\position.h" />
+    <ClInclude Include="..\..\engine\psqt.h" />
+    <ClInclude Include="..\..\engine\repetition.h" />
+    <ClInclude Include="..\..\engine\search.h" />
+    <ClInclude Include="..\..\engine\tt.h" />
     <ClInclude Include="..\..\engine\types.h" />
+    <ClInclude Include="..\..\engine\uci.h" />
+    <ClInclude Include="..\..\engine\zobrist.h" />
   </ItemGroup>
   <ItemGroup>
   </ItemGroup>

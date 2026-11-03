@@ -55,7 +55,7 @@ struct RepetitionTable {
     bool is_repetition(ui64 hash, i32 halfmove_clock) const {
         // Repetitions can only occur at same-colour positions (every 2 plies)
         // and only within the halfmove clock window
-        i32 lookback = min(halfmove_clock, count - 1);
+        i32 lookback = std::min(halfmove_clock, count - 1);
 
         // Walk back in steps of 2 (same side to move) within the window
         for (i32 i = count - 2; i >= count - lookback; i -= 2) {

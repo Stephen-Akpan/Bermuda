@@ -5,7 +5,6 @@
 #include "tt.h"
 #include "eval.h"
 #include "repetition.h"
-#include "nnue.h"
 #include <atomic>
 #include <chrono>
 
@@ -121,11 +120,6 @@ struct SearchInfo {
     // Indexed [colour][from][to]
     i32   history[2][64][64];
 
-    // ------------------------------------------------------------------------
-    // NNUE info
-    // ------------------------------------------------------------------------
-    NNUE_Data nnue_stack[MAX_PLY + 4];
-
     // -------------------------------------------------------------------------
     // Setup
     // -------------------------------------------------------------------------
@@ -157,11 +151,6 @@ struct SearchInfo {
             for (i32 f = 0; f < 64; f++)
                 for (i32 t = 0; t < 64; t++)
                     history[c][f][t] = 0;
-        
-        for (i32 i = 0; i < MAX_PLY + 4; i++) {
-            nnue_stack[i].accu.computed_accumulation = 0;
-            nnue_stack[i].dirty_piece.dirty_num = 0;
-        }
     }
 
     // -------------------------------------------------------------------------
@@ -190,30 +179,29 @@ struct SearchInfo {
             return;
         }
 
-        // Time control — allocate a fraction of remaining time
+        // Time control — budget conservatively while reserving clock for later moves
         i32 time_remaining = (pos.side_to_move() == WHITE)
             ? limits.wtime : limits.btime;
         i32 increment = (pos.side_to_move() == WHITE)
             ? limits.winc : limits.binc;
 
-        // Assume 25 moves to go in sudden death (more realistic than 30)
-        i32 moves_to_go = (limits.movestogo > 0) ? limits.movestogo : 25;
+        if (time_remaining <= 0) {
+            soft_limit_ms = 1;
+            hard_limit_ms = 1;
+            return;
+        }
 
-        // Base allocation: time slice + most of the increment
-        i32 base = (time_remaining / moves_to_go) + (increment * 3 / 4);
+        const i64 moves_to_go = limits.movestogo > 0 ? limits.movestogo : 50;
+        const i64 reserve = std::min<i64>(
+            time_remaining, std::max<i64>(20, time_remaining / 50));
+        const i64 available = std::max<i64>(1, time_remaining - reserve);
+        const i64 base = static_cast<i64>(time_remaining) / (moves_to_go + 2)
+                       + std::max<i64>(0, increment) * 3 / 4;
+        const i64 target = std::max<i64>(1, base);
 
-        // Hard cap: never commit more than 80% of remaining time to one move
-        i32 hard_cap = time_remaining * 7 / 10;
-
-        // Soft limit: target time per move
-        // Hard limit: 1.5x soft — allows finishing a nearly-complete iteration
-        //             before aborting, but won't let us run away
-        soft_limit_ms = min(base,         hard_cap);
-        hard_limit_ms = min(base * 3 / 2, hard_cap);
-
-        // Minimums — avoid degenerate near-zero allocations
-        soft_limit_ms = max(soft_limit_ms, 5);
-        hard_limit_ms = max(hard_limit_ms, 10);
+        soft_limit_ms = static_cast<i32>(std::min(target, available));
+        hard_limit_ms = static_cast<i32>(
+            std::min(target * 3 / 2, available));
     }
 
     i32 elapsed_ms() const {

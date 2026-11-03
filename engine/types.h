@@ -115,6 +115,23 @@ inline PieceType type_of(Piece p) { return (PieceType)(p & 7); }
 inline Colour colour_of(Piece p) { return (Colour)(p >> 3); }
 inline Piece make_piece(Colour c, PieceType pt) { return (Piece)((c << 3) | pt); }
 
+// Piece values (for eval)
+enum Value {
+  PAWN_MG   = 100,   PAWN_EG   = 200,
+  KNIGHT_MG = 700,   KNIGHT_EG = 800,
+  BISHOP_MG = 800,   BISHOP_EG = 900,
+  ROOK_MG   = 1000,  ROOK_EG   = 1100,
+  QUEEN_MG  = 2000,  QUEEN_EG  = 2300,
+  KING_MG   = 0,     KING_EG   = 0
+};
+
+constexpr f64 PIECE_VALUES[12] = {
+  // Middle game
+  PAWN_MG, KNIGHT_MG, BISHOP_MG, ROOK_MG, QUEEN_MG, KING_MG,
+  // End game
+  PAWN_EG, KNIGHT_EG, BISHOP_EG, ROOK_EG, QUEEN_EG, KING_EG
+};
+
 // ============================================================================
 // Directions
 // ============================================================================

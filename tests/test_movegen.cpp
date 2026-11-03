@@ -171,6 +171,15 @@ TEST_CASE("movegen pawns: white promotion capture generates all four", "[movegen
     REQUIRE(has_promo(list, e7, d8, PROMO_KNIGHT));
 }
 
+TEST_CASE("capture generation includes quiet queen promotions", "[movegen][pawn]") {
+    Position pos = make_pos("7k/4P3/8/8/8/8/8/4K3 w - - 0 1");
+    MoveList list;
+    MoveGen::generate_captures(pos, list);
+
+    REQUIRE(has_promo(list, e7, e8, PROMO_QUEEN));
+    REQUIRE(count_move(list, e7, e8) == 1);
+}
+
 TEST_CASE("movegen pawns: white pawn on rank 7 generates only promotions", "[movegen][pawn]") {
     Position pos = make_pos("8/4P3/8/8/8/8/8/4K2k w - - 0 1");
     MoveList list;

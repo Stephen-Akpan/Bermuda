@@ -2,7 +2,6 @@
 #include "movegen.h"
 #include "perft.h"
 #include "eval.h"
-#include "nnue.h"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -95,8 +94,8 @@ static void cmd_uci() {
               << "\n";
 
     std::cout << "option name Clear Hash type button\n";
-
-    std::cout << "option name EvalFile type string default network.nnue\n";
+    std::cout << "option name EvalParams type string default "
+              << options.eval_params << "\n";
 
     std::cout << "\nuciok\n";
 }
@@ -131,7 +130,7 @@ void cmd_setoption(const std::string& line) {
     if (name_lower == "hash") {
         try {
             i32 mb = std::stoi(value_str);
-            mb = max(1, min(mb, 65536));
+            mb = std::max(1, std::min(mb, 65536));
             options.hash_mb = mb;
             TT.resize(mb);
             std::cout << "info string Hash set to " << mb << " MB\n";
@@ -142,7 +141,7 @@ void cmd_setoption(const std::string& line) {
     else if (name_lower == "moveoverhead") {
         try {
             i32 ms = std::stoi(value_str);
-            ms = max(0, min(ms, 5000));
+            ms = std::max(0, std::min(ms, 5000));
             options.move_overhead = ms;
         } catch (...) {}
     }
@@ -150,8 +149,22 @@ void cmd_setoption(const std::string& line) {
         TT.clear();
         std::cout << "info string Hash cleared\n";
     }
-    else if (name_lower == "evalfile") {
-        Eval::init(value_str);
+    else if (name_lower == "evalparams") {
+        if (value_str.empty()) {
+            options.eval_params.clear();
+            Eval::reset_parameters();
+            std::cout << "info string Evaluation parameters reset\n";
+        } else {
+            std::string error;
+            if (Eval::load_parameters(value_str, error)) {
+                options.eval_params = value_str;
+                std::cout << "info string Evaluation parameters loaded from "
+                          << value_str << "\n";
+            } else {
+                std::cerr << "info string Evaluation parameter error: "
+                          << error << "\n";
+            }
+        }
     }
     else {
         std::cerr << "info string Unknown option: " << name_str << "\n";
@@ -234,14 +247,14 @@ void cmd_go(SearchInfo& info, const std::string& line) {
     // Clamp to 1ms minimum — never let overhead push remaining time to zero
     // or negative, which would cause compute_allocated_time to misbehave.
     if (limits.wtime > 0)
-        limits.wtime = max(1, limits.wtime - options.move_overhead);
+        limits.wtime = std::max(1, limits.wtime - options.move_overhead);
     if (limits.btime > 0)
-        limits.btime = max(1, limits.btime - options.move_overhead);
+        limits.btime = std::max(1, limits.btime - options.move_overhead);
 
     // For movetime, overhead is already the only buffer — clamp to 0
     // since compute_allocated_time uses it directly as the hard limit.
     if (limits.movetime > 0)
-        limits.movetime = max(0, limits.movetime - options.move_overhead);
+        limits.movetime = std::max(1, limits.movetime - options.move_overhead);
 
     info.limits = limits;
 
@@ -281,7 +294,6 @@ void loop() {
     BB::init();
     Zobrist::init();
     TT.resize(options.hash_mb);
-    Eval::init("network.nnue");
 
     SearchInfo info;
     info.pos.set_startpos();

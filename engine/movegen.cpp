@@ -102,9 +102,17 @@ static void generate_pawn_moves(const Position& pos, MoveList& list, bool captur
 
     if (promo_pawns) {
         // Push promotions
-        if (!captures_only) {
+        {
             Bitboard push_promo = BB::pawn_push(promo_pawns, us) & empty;
-            push_pawn_promos(list, push_promo, push_delta);
+            if (captures_only) {
+                while (push_promo) {
+                    Square to = static_cast<Square>(pop_lsb(push_promo));
+                    Square from = static_cast<Square>((i32)to - push_delta);
+                    list.push(Move::make_promo(from, to, PROMO_QUEEN));
+                }
+            } else {
+                push_pawn_promos(list, push_promo, push_delta);
+            }
         }
 
         // Capture promotions

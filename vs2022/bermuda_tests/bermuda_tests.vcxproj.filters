@@ -27,6 +27,9 @@
     <ClCompile Include="..\..\tests\test_types.cpp">
       <Filter>tests</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\tests\test_zobrist_tt.cpp">
+      <Filter>tests</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\tests\catch_amalgamated.hpp">

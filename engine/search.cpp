@@ -5,106 +5,11 @@
 #include <cmath>
 
 namespace Search {
-
-static constexpr i32 PIECE_TO_NNUE[2][6] = {
-    //  PAWN        KNIGHT      BISHOP      ROOK        QUEEN       KING
-    {   6,     5,   4,   3,     2,    1  },  // WHITE
-    {   12,     11,   10,   9,     8,    7  },  // BLACK
-};
-
-static void fill_dirty_piece(const Position& pos, Move m, DirtyPiece& dp) {
-    const Square from = m.from();
-    const Square to = m.to();
-    const Piece mover = pos.piece_on(from);
-    const Colour us = colour_of(mover);
-
-    dp.dirty_num = 1;
-
-    if (m.flag() == CASTLING) {
-        // King move
-        dp.pc[0] = PIECE_TO_NNUE[us][KING];
-        dp.from[0] = (i32)from;
-        dp.to[0] = (i32)to;
-        // Rook move
-        Square rook_from, rook_to;
-        if (to == g1) { rook_from = h1; rook_to = f1; } // White kingside
-        else if (to == c1) { rook_from = a1; rook_to = d1; } // White kingside
-        else if (to == g8) { rook_from = h8; rook_to = f8; } // Black kingside
-        else { rook_from = a8; rook_to = d8; } // Black queenside
-        dp.pc[1] = PIECE_TO_NNUE[us][ROOK];
-        dp.from[1] = (i32)rook_from;
-        dp.to[1] = (i32)rook_to;
-        dp.dirty_num = 2;
-    }
-    else if (m.flag() == EN_PASSANT) {
-        Square cap_sq = (us == WHITE) ? Square(to - 8) : Square(to + 8);
-        // Pawn move
-        dp.pc[0] = PIECE_TO_NNUE[us][PAWN];
-        dp.from[0] = (i32)from;
-        dp.to[0] = (i32)to;
-        // Captured pawn removed
-        dp.pc[1] = PIECE_TO_NNUE[flip(us)][PAWN];
-        dp.from[1] = (i32)cap_sq;
-        dp.to[1] = (i32)64;
-        dp.dirty_num = 2;
-    }
-    else if (m.flag() == PROMOTION) {
-        PieceType promo_pt;
-
-        switch (m.promo()) {
-        case PROMO_KNIGHT: promo_pt = KNIGHT; break;
-        case PROMO_BISHOP: promo_pt = BISHOP; break;
-        case PROMO_ROOK: promo_pt = ROOK; break;
-        case PROMO_QUEEN: promo_pt = QUEEN; break;
-        default: promo_pt = QUEEN; break;
-        }
-        dp.pc[0] = PIECE_TO_NNUE[us][PAWN];
-        dp.from[1] = (i32)from;
-        dp.to[1] = 64;
-        
-        dp.pc[1] = PIECE_TO_NNUE[us][promo_pt];
-        dp.from[1] = 64;
-        dp.to[1] = (i32)to;
-
-        dp.dirty_num = 2;
-
-        Piece captured = pos.piece_on(to);
-        if (captured != NO_PIECE) {
-            dp.pc[2] = PIECE_TO_NNUE[us][type_of(captured)];
-            dp.from[2] = (i32)to;
-            dp.to[2] = 64;
-            dp.dirty_num = 3;
-        }
-    }
-    else { // NORMAL
-        dp.pc[0] = PIECE_TO_NNUE[us][type_of(mover)];
-        dp.from[0] = (i32)from;
-        dp.to[0] = (i32)to;
-
-        Piece captured = pos.piece_on(to);
-
-        if (captured != NO_PIECE) {
-            dp.pc[1] = PIECE_TO_NNUE[colour_of(captured)][type_of(captured)];
-            dp.from[1] = (i32)to;
-            dp.to[1] = 64;
-            dp.dirty_num = 2;
-        }
-    }
-}
-
-// --------------------------------------------------------------------------
-// Helper for ply-bounds logic
-// --------------------------------------------------------------------------
-#define NNUE_PTRS(info, ply) \
-    NNUE_Data* nd0 = &(info).nnue_stack[(ply)]; \
-    NNUE_Data* nd1 = ((ply) > 0) ? &(info).nnue_stack[(ply) - 1] : nullptr; \
-    NNUE_Data* nd2 = ((ply) > 1) ? &(info).nnue_stack[(ply) - 2] : nullptr; \
-
 // ============================================================================
 // LMR Reduction Table
 // ============================================================================
 // Precomputed at startup: reductions[depth][move_count]
-// Formula: 1 + ln(depth) * ln(move_count) / 2
+// Formula: ln(depth) * ln(move_count) / 2
 // Clamped to [1, depth-1] at call site.
 
 static i32 LMR_TABLE[MAX_PLY][64];
@@ -113,7 +18,7 @@ static void init_lmr_table() {
     for (i32 depth = 1; depth < MAX_PLY; depth++) {
         for (i32 mc = 1; mc < 64; mc++) {
             LMR_TABLE[depth][mc] = static_cast<i32>(
-                1.0 + std::log(depth) * std::log(mc) / 2.0);
+                std::log(depth) * std::log(mc) / 2.0);
         }
     }
 }
@@ -129,7 +34,7 @@ static void init_lmr_table() {
 // depth 2: ~minor piece   — a knight/bishop swing
 // depth 3: ~a rook        — large positional swings at this depth are rare
 
-static constexpr i32 FUTILITY_MARGIN[4] = { 0, 100, 300, 500 };
+static constexpr i32 FUTILITY_MARGIN[4] = { 0, 90, 180, 280 };
 static constexpr i32 FUTILITY_MAX_DEPTH = 3;
 
 // ============================================================================
@@ -168,6 +73,101 @@ static constexpr i32 MVV_LVA[6][6] = {
     /* K */  { 100, 200, 300, 400, 500, 600 },
 };
 
+static constexpr i32 SEE_VALUE[6] = { 100, 320, 335, 500, 930, 20000 };
+
+static Bitboard attackers_to(Square target, Colour colour,
+                             const Bitboard pieces[2][6], Bitboard occupied) {
+    Bitboard attackers = BB::pawn_attacks(BB::square_bb(target), flip(colour))
+                       & pieces[colour][PAWN];
+    attackers |= BB::knight_attack(target) & pieces[colour][KNIGHT];
+    attackers |= BB::bishop_attack(target, occupied)
+               & (pieces[colour][BISHOP] | pieces[colour][QUEEN]);
+    attackers |= BB::rook_attack(target, occupied)
+               & (pieces[colour][ROOK] | pieces[colour][QUEEN]);
+    attackers |= BB::king_attack(target) & pieces[colour][KING];
+    return attackers;
+}
+
+static i32 static_exchange(const Position& pos, Move move) {
+    const Colour us = pos.side_to_move();
+    const Square from = move.from();
+    const Square target = move.to();
+    const Piece moving = pos.piece_on(from);
+    const Piece victim = move.is_en_passant()
+        ? make_piece(flip(us), PAWN) : pos.piece_on(target);
+    const Square capturedSquare = move.is_en_passant()
+        ? static_cast<Square>(static_cast<i32>(target) - pawn_push_dir(us)) : target;
+
+    Bitboard pieces[2][6];
+    for (Colour colour : { WHITE, BLACK })
+        for (PieceType type : { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING })
+            pieces[colour][type] = pos.pieces(colour, type);
+
+    Bitboard occupied = pos.all_pieces();
+    pieces[us][type_of(moving)] &= ~BB::square_bb(from);
+    occupied &= ~BB::square_bb(from);
+    if (victim != NO_PIECE) {
+        pieces[flip(us)][type_of(victim)] &= ~BB::square_bb(capturedSquare);
+        occupied &= ~BB::square_bb(capturedSquare);
+    }
+
+    PieceType occupant = type_of(moving);
+    i32 initialGain = victim == NO_PIECE ? 0 : SEE_VALUE[type_of(victim)];
+    if (move.is_promotion()) {
+        const PieceType promoted = move.promo() == PROMO_QUEEN ? QUEEN
+            : move.promo() == PROMO_ROOK ? ROOK
+            : move.promo() == PROMO_BISHOP ? BISHOP : KNIGHT;
+        initialGain += SEE_VALUE[promoted] - SEE_VALUE[PAWN];
+        occupant = promoted;
+    }
+    pieces[us][occupant] |= BB::square_bb(target);
+    occupied |= BB::square_bb(target);
+
+    i32 gains[32] = {};
+    gains[0] = initialGain;
+    Colour side = flip(us);
+    i32 depth = 0;
+
+    while (depth < 30) {
+        Bitboard attackers = attackers_to(target, side, pieces, occupied);
+        if (!attackers)
+            break;
+
+        PieceType attackerType = PAWN;
+        Square attackerSquare = NO_SQUARE;
+        bool found = false;
+        for (PieceType type : { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING }) {
+            const Bitboard candidates = attackers & pieces[side][type];
+            if (candidates) {
+                attackerType = type;
+                attackerSquare = static_cast<Square>(lsb(candidates));
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            break;
+
+        ++depth;
+        gains[depth] = SEE_VALUE[occupant] - gains[depth - 1];
+        if (std::max(-gains[depth - 1], gains[depth]) < 0)
+            break;
+
+        pieces[flip(side)][occupant] &= ~BB::square_bb(target);
+        pieces[side][attackerType] &= ~BB::square_bb(attackerSquare);
+        occupied &= ~BB::square_bb(attackerSquare);
+        pieces[side][attackerType] |= BB::square_bb(target);
+        occupant = attackerType;
+        side = flip(side);
+    }
+
+    while (depth > 0) {
+        gains[depth - 1] = -std::max(-gains[depth - 1], gains[depth]);
+        --depth;
+    }
+    return gains[0];
+}
+
 // Score a single move for ordering purposes
 static i32 score_move(const Position& pos, Move m, Move tt_move,
                       const Move killers[2], const i32 history[64][64]) {
@@ -185,7 +185,11 @@ static i32 score_move(const Position& pos, Move m, Move tt_move,
 
     if (victim != NO_PIECE) {
         Piece attacker = pos.piece_on(m.from());
-        return 800'000 + MVV_LVA[type_of(attacker)][type_of(victim)];
+        const i32 exchange = static_exchange(pos, m);
+        const i32 value = MVV_LVA[type_of(attacker)][type_of(victim)];
+        return exchange >= 0
+            ? 800'000 + value * 100 + exchange
+            : -100'000 + exchange;
     }
 
     if (m == killers[0]) return 700'000;
@@ -226,12 +230,13 @@ static void update_killers(SearchInfo& info, i32 ply, Move m) {
 }
 
 // Update history heuristic — bonus for quiet moves that caused cutoffs
-static void update_history(SearchInfo& info, Move m, i32 depth) {
+static void update_history(SearchInfo& info, Move m, i32 depth, i32 direction) {
     i32 colour = (i32)info.pos.side_to_move();
-    i32 bonus  = depth * depth;
+    i32 bonus  = std::min(depth * depth * 16, 2048) * direction;
 
     i32& entry = info.history[colour][m.from()][m.to()];
-    entry = min(entry + bonus, 10000);
+    entry += bonus - entry * std::abs(bonus) / 16384;
+    entry = std::max(-16384, std::min(entry, 16384));
 }
 
 // ============================================================================
@@ -241,39 +246,63 @@ static void update_history(SearchInfo& info, Move m, i32 depth) {
 static i32 quiescence(SearchInfo& info, Stack* ss, i32 alpha, i32 beta) {
     info.nodes++;
 
-    if ((info.nodes & 2047) == 0) {
+    if ((info.nodes & 127) == 0) {
         if (info.past_hard_limit()) {
             info.stop.store(true);
         }
     }
 
-    NNUE_PTRS(info, ss->ply);
-    i32 stand_pat  = Eval::evaluate(info.pos, nd0, nd1, nd2);
+    const bool in_check = info.pos.in_check();
 
     if (info.stop.load(std::memory_order_relaxed))
-        return stand_pat;
+        return 0;
 
-    if (ss->ply >= MAX_PLY - 1)
-        return stand_pat;
+    if (info.rep_table.is_draw(info.pos.hash(), info.pos.halfmove()))
+        return 0;
 
-    
-    i32 best_score = stand_pat;
+    if (ss->ply >= MAX_PLY - 1) {
+        if (!in_check)
+            return Eval::evaluate(info.pos);
 
-    if (stand_pat >= beta)
-        return stand_pat;
+        MoveList evasions;
+        MoveGen::generate_moves(info.pos, evasions);
+        i32 best_evasion = -INF;
+        for (i32 i = 0; i < evasions.size(); ++i) {
+            const Move move = evasions[i];
+            const UndoInfo undo = info.pos.make_move(move);
+            const bool legal = !info.pos.is_attacked_by(
+                info.pos.king_square(flip(info.pos.side_to_move())),
+                info.pos.side_to_move());
+            if (legal)
+                best_evasion = std::max(best_evasion, -Eval::evaluate(info.pos));
+            info.pos.unmake_move(move, undo);
+        }
+        return best_evasion == -INF ? mated_in(ss->ply) : best_evasion;
+    }
 
-    if (stand_pat > alpha)
-        alpha = stand_pat;
+    i32 best_score = in_check ? -INF : Eval::evaluate(info.pos);
 
-    MoveList captures;
-    MoveGen::generate_captures(info.pos, captures);
+    if (!in_check) {
+        if (best_score >= beta)
+            return best_score;
 
-    order_moves(info.pos, captures, NULL_MOVE,
+        if (best_score > alpha)
+            alpha = best_score;
+    }
+
+    MoveList moves;
+    if (in_check)
+        MoveGen::generate_moves(info.pos, moves);
+    else
+        MoveGen::generate_captures(info.pos, moves);
+
+    order_moves(info.pos, moves, NULL_MOVE,
                 info.killers[ss->ply],
                 info.history[(i32)info.pos.side_to_move()]);
 
-    for (i32 i = 0; i < captures.size(); i++) {
-        Move m = captures[i];
+    i32 legal_moves = 0;
+    for (i32 i = 0; i < moves.size(); i++) {
+        Move m = moves[i];
 
         // ---------------------------------------------------------------------
         // Delta pruning
@@ -287,33 +316,33 @@ static i32 quiescence(SearchInfo& info, Stack* ss, i32 alpha, i32 beta) {
         //   - Not a promotion: a pawn capture leading to promotion is worth
         //     ~900cp+, far more than DELTA_PIECE_VALUE[PAWN] would suggest
         //   - Not a near-mate score: material margins are meaningless near mate
-        if (!info.pos.in_check() && !m.is_promotion() && !is_mate_score(alpha)) {
+        if (!in_check && !m.is_promotion() && !is_mate_score(alpha)) {
             Piece victim = m.is_en_passant()
                 ? make_piece(flip(info.pos.side_to_move()), PAWN)
                 : info.pos.piece_on(m.to());
 
             if (victim != NO_PIECE) {
                 i32 gain = DELTA_PIECE_VALUE[type_of(victim)];
-                if (stand_pat + gain + DELTA_MARGIN <= alpha)
+                if (best_score + gain + DELTA_MARGIN <= alpha)
                     continue;
             }
         }
 
-        NNUE_Data* nd_child = &info.nnue_stack[ss->ply + 1];
-        nd_child->accu.computed_accumulation = 0;
-        fill_dirty_piece(info.pos, m, nd_child->dirty_piece);
+        if (!in_check && !m.is_promotion() && !m.is_en_passant()
+            && static_exchange(info.pos, m) < -80)
+            continue;
 
         UndoInfo undo = info.pos.make_move(m);
-        info.rep_table.push(info.pos.hash());
 
         if (info.pos.is_attacked_by(
                 info.pos.king_square(flip(info.pos.side_to_move())),
                 info.pos.side_to_move())) {
-            info.rep_table.pop();
             info.pos.unmake_move(m, undo);
             continue;
         }
 
+        ++legal_moves;
+        info.rep_table.push(info.pos.hash());
         (ss + 1)->ply = ss->ply + 1;
         i32 score = -quiescence(info, ss + 1, -beta, -alpha);
 
@@ -333,6 +362,9 @@ static i32 quiescence(SearchInfo& info, Stack* ss, i32 alpha, i32 beta) {
             alpha = score;
     }
 
+    if (in_check && legal_moves == 0)
+        return mated_in(ss->ply);
+
     return best_score;
 }
 
@@ -346,6 +378,9 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
 
     info.nodes++;
 
+    if (ss->ply >= MAX_PLY - 1)
+        return quiescence(info, ss, alpha, beta);
+
     // Initialise PV length for this ply — prevents stale moves from a previous
     // search iteration bleeding into the PV if this node fails to raise alpha.
     info.pv_length[ss->ply] = ss->ply;
@@ -354,21 +389,16 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
     // Early exits
     // -------------------------------------------------------------------------
 
-    if (ss->ply >= MAX_PLY - 1) {
-        NNUE_PTRS(info, ss->ply);
-        return Eval::evaluate(info.pos, nd0, nd1, nd2);
-    }
-
-    if (depth <= 0)
-        return quiescence(info, ss, alpha, beta);
-
     if (!is_root) {
         if (info.rep_table.is_draw(info.pos.hash(), info.pos.halfmove()))
             return 0;
     }
 
+    if (depth <= 0)
+        return quiescence(info, ss, alpha, beta);
+
     // Periodic hard-limit check — abort mid-search if we've overrun
-    if ((info.nodes & 2047) == 0) {
+    if ((info.nodes & 127) == 0) {
         if (info.past_hard_limit())
             info.stop.store(true);
     }
@@ -406,6 +436,28 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
         }
     }
 
+    if (!in_check)
+        ss->static_eval = Eval::evaluate(info.pos);
+
+    const Colour us = info.pos.side_to_move();
+    const bool has_non_pawn_material =
+        (info.pos.pieces(us, KNIGHT) | info.pos.pieces(us, BISHOP)
+       | info.pos.pieces(us, ROOK) | info.pos.pieces(us, QUEEN)) != 0;
+
+    if (!is_pv && !is_root && !in_check && !is_mate_score(beta)
+        && has_non_pawn_material && depth <= FUTILITY_MAX_DEPTH
+        && ss->static_eval - FUTILITY_MARGIN[depth] >= beta)
+        return ss->static_eval;
+
+    if (!is_pv && !in_check && tt_move.is_null() && depth <= 3
+        && !is_mate_score(alpha)) {
+        static constexpr i32 RAZOR_MARGIN[4] = { 0, 420, 520, 620 };
+        const i32 razorAlpha = alpha - RAZOR_MARGIN[depth];
+        const i32 razorScore = quiescence(info, ss, razorAlpha, razorAlpha + 1);
+        if (razorScore <= razorAlpha)
+            return razorScore;
+    }
+
     // -------------------------------------------------------------------------
     // Null Move Pruning
     // -------------------------------------------------------------------------
@@ -413,54 +465,41 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
         && !in_check
         && ss->null_move_allowed
         && depth >= 3
-        && ss->ply >= 1)
+        && ss->ply >= 1
+        && has_non_pawn_material
+        && ss->static_eval >= beta)
     {
-        Colour us = info.pos.side_to_move();
-        bool has_pieces = (info.pos.pieces(us, KNIGHT)
-                         | info.pos.pieces(us, BISHOP)
-                         | info.pos.pieces(us, ROOK)
-                         | info.pos.pieces(us, QUEEN)) != 0;
+        const i32 surplus = std::max(0, ss->static_eval - beta);
+        const i32 reduction = 2 + depth / 4 + std::min(surplus / 200, 3);
 
-        if (has_pieces) {
-            i32 R = 3 + depth / 6;
+        const NullMoveUndo null_undo = info.pos.make_null_move();
+        (ss + 1)->ply = ss->ply + 1;
+        (ss + 1)->null_move_allowed = false;
+        const i32 null_score = -search(
+            info, ss + 1, depth - 1 - reduction, -beta, -beta + 1);
+        info.pos.unmake_null_move(null_undo);
+        (ss + 1)->null_move_allowed = true;
 
-            NNUE_Data* nd_null = &info.nnue_stack[ss->ply + 1];
-            nd_null->accu.computed_accumulation = 0;
-            nd_null->dirty_piece.dirty_num = 0;
+        if (info.stop.load(std::memory_order_relaxed))
+            return 0;
 
-            NullMoveUndo null_undo = info.pos.make_null_move();
-            info.rep_table.push(info.pos.hash());
+        if (null_score >= beta) {
+            if (null_score >= MATE_BOUND)
+                return beta;
 
-            (ss + 1)->ply               = ss->ply + 1;
-            (ss + 1)->null_move_allowed = false;
+            if (depth < 8)
+                return null_score;
 
-            i32 null_score = -search(info, ss + 1, depth - 1 - R, -beta, -beta + 1);
-
-            info.rep_table.pop();
-            info.pos.unmake_null_move(null_undo);
-
-            (ss + 1)->null_move_allowed = true;
-
+            const bool nullMoveAllowed = ss->null_move_allowed;
+            ss->null_move_allowed = false;
+            const i32 verification = search(
+                info, ss, depth - 1 - reduction, beta - 1, beta);
+            ss->null_move_allowed = nullMoveAllowed;
             if (info.stop.load(std::memory_order_relaxed))
                 return 0;
-
-            if (null_score >= beta) {
-                // Don't trust null move for mate scores — cap at beta
-                if (null_score >= MATE_BOUND)
-                    null_score = beta;
-
+            if (verification >= beta)
                 return null_score;
-            }
         }
-    }
-
-    // -------------------------------------------------------------------------
-    // Static evaluation — computed once per node, used for pruning decisions.
-    // Skipped when in check since eval is unreliable under check.
-    // -------------------------------------------------------------------------
-    if (!in_check) {
-        NNUE_PTRS(info, ss->ply);
-        ss->static_eval = Eval::evaluate(info.pos, nd0, nd1, nd2);
     }
 
     // -------------------------------------------------------------------------
@@ -474,6 +513,8 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
                 info.history[(i32)info.pos.side_to_move()]);
 
     i32  legal_moves = 0;
+    Move searched_quiets[MoveList::MAX_MOVES];
+    i32  searched_quiet_count = 0;
     Move best_move   = NULL_MOVE;
     i32  best_score  = -INF;
 
@@ -498,6 +539,14 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
                            && !m.is_promotion()
                            && info.pos.piece_on(m.to()) == NO_PIECE;
 
+        const bool is_capture = m.is_en_passant()
+            || info.pos.piece_on(m.to()) != NO_PIECE;
+        if (!is_root && !in_check && legal_moves > 0
+            && is_capture && !m.is_promotion()
+            && depth <= 6 && !is_mate_score(alpha)
+            && static_exchange(info.pos, m) < -35 * depth * depth)
+            continue;
+
         if (!in_check
             && !is_pv
             && is_quiet_move
@@ -508,10 +557,6 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
         {
             continue;
         }
-
-        NNUE_Data* nd_child = &info.nnue_stack[ss->ply + 1];
-        nd_child->accu.computed_accumulation = 0;
-        fill_dirty_piece(info.pos, m, nd_child->dirty_piece);
 
         UndoInfo undo = info.pos.make_move(m);
 
@@ -527,6 +572,8 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
         (ss + 1)->ply               = ss->ply + 1;
         (ss + 1)->current_move      = m;
         (ss + 1)->null_move_allowed = true;
+        if (is_quiet_move)
+            searched_quiets[searched_quiet_count++] = m;
 
         // -------------------------------------------------------------------------
         // PVS + LMR
@@ -545,19 +592,32 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
             bool do_lmr = depth >= 3
                        && legal_moves >= 3
                        && is_quiet_move
-                       && !in_check;
+                       && !in_check
+                       && !info.pos.in_check();
 
             i32 reduction = 0;
 
             if (do_lmr) {
                 // Look up reduction from precomputed table.
                 // Clamp move_count index to table bounds.
-                i32 mc_idx = min(legal_moves, 63);
-                reduction  = LMR_TABLE[depth][mc_idx];
+                i32 mc_idx = std::min(legal_moves, 63);
+                i32 depth_idx = std::min(depth, MAX_PLY - 1);
+                reduction  = LMR_TABLE[depth_idx][mc_idx];
+
+                if (is_pv)
+                    reduction = std::max(0, reduction - 1);
+
+                const i32 move_history =
+                    info.history[static_cast<i32>(flip(info.pos.side_to_move()))]
+                                [m.from()][m.to()];
+                if (move_history > 2048)
+                    reduction = std::max(0, reduction - 1);
+                else if (move_history < -1024)
+                    ++reduction;
 
                 // Never reduce to zero or below — that would be a quiescence
                 // call, which is handled separately. Minimum reduced depth is 1.
-                reduction = min(reduction, depth - 1);
+                reduction = std::min(reduction, depth - 1);
             }
 
             // Null-window search at reduced depth (or full depth if no reduction)
@@ -615,8 +675,11 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
                 && !m.is_promotion()
                 && info.pos.piece_on(m.to()) == NO_PIECE) {
                 update_killers(info, ss->ply, m);
-                update_history(info, m, depth);
+                update_history(info, m, depth, 1);
             }
+            for (i32 quiet = 0; quiet < searched_quiet_count; ++quiet)
+                if (searched_quiets[quiet] != m)
+                    update_history(info, searched_quiets[quiet], depth, -1);
             break;
         }
     }
@@ -676,9 +739,7 @@ Move start(SearchInfo& info) {
     constexpr i32 ASPIRATION_DELTA     = 25;
     constexpr i32 ASPIRATION_MIN_DEPTH = 5;
 
-    info.nnue_stack[0].accu.computed_accumulation = 0;
-    info.nnue_stack[0].dirty_piece.dirty_num = 0;
-    Eval::evaluate(info.pos, &info.nnue_stack[0], nullptr, nullptr); // computed_accumulation = 1
+    Eval::evaluate(info.pos); // computed_accumulation = 1
 
     for (i32 depth = 1; depth <= info.limits.depth; depth++) {
         info.root_depth = depth;

@@ -7,6 +7,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bermuda_tests", "bermuda_te
 		{26E5CD2F-9B75-4E70-825A-06AD8629DFF2} = {26E5CD2F-9B75-4E70-825A-06AD8629DFF2}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bermuda", "bermuda\bermuda.vcxproj", "{C03C7647-1261-4D1D-93EF-339A8DA87B5A}"
+	ProjectSection(ProjectDependencies) = postProject
+		{26E5CD2F-9B75-4E70-825A-06AD8629DFF2} = {26E5CD2F-9B75-4E70-825A-06AD8629DFF2}
+	EndProjectSection
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bermuda_engine", "bermuda_engine\bermuda_engine.vcxproj", "{26E5CD2F-9B75-4E70-825A-06AD8629DFF2}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{B8999AA5-9ACE-4CB0-B6BF-E8B7C9285604}"
@@ -21,6 +26,10 @@ Global
 		release|x64 = release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C03C7647-1261-4D1D-93EF-339A8DA87B5A}.debug|x64.ActiveCfg = debug|x64
+		{C03C7647-1261-4D1D-93EF-339A8DA87B5A}.debug|x64.Build.0 = debug|x64
+		{C03C7647-1261-4D1D-93EF-339A8DA87B5A}.release|x64.ActiveCfg = release|x64
+		{C03C7647-1261-4D1D-93EF-339A8DA87B5A}.release|x64.Build.0 = release|x64
 		{26E5CD2F-9B75-4E70-825A-06AD8629DFF2}.debug|x64.ActiveCfg = debug|x64
 		{26E5CD2F-9B75-4E70-825A-06AD8629DFF2}.debug|x64.Build.0 = debug|x64
 		{26E5CD2F-9B75-4E70-825A-06AD8629DFF2}.release|x64.ActiveCfg = release|x64
@@ -38,6 +47,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{C03C7647-1261-4D1D-93EF-339A8DA87B5A} = {B8999AA5-9ACE-4CB0-B6BF-E8B7C9285604}
 		{26E5CD2F-9B75-4E70-825A-06AD8629DFF2} = {B8999AA5-9ACE-4CB0-B6BF-E8B7C9285604}
 		{F3E472C9-EDF1-46CD-990D-B46EE2743358} = {A943D6DD-7CEC-4D76-BC34-5560CA130741}
 		{904A86B2-2E9B-42A4-AC0D-DED4F74E0BEE} = {05C6DE22-5909-4D3B-AA44-B7DD643D53DD}

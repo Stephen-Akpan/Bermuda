@@ -130,6 +130,8 @@
     </ClCompile>
     <ClCompile Include="..\..\tests\test_types.cpp">
     </ClCompile>
+    <ClCompile Include="..\..\tests\test_zobrist_tt.cpp">
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\tests\catch_amalgamated.hpp" />

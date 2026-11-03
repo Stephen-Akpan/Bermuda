@@ -1,1 +1,4 @@
-{ }
+{
+    projectdir = [[C:\Users\gmicp\Desktop\Steve Docs\Projects\ChessEngines\Bermuda]],
+    projectfile = [[C:\Users\gmicp\Desktop\Steve Docs\Projects\ChessEngines\Bermuda\xmake.lua]]
+}

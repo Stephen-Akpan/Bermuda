@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071827">
+  <meta name="description" content="Bermuda is a UCI chess engine with bitboard move generation, handcrafted evaluation, and iterative-deepening search.">
+  <title>Bermuda Chess Engine — Documentation</title>
+  <link rel="icon" href="assets/Logo.jpg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="Bermuda documentation home">
+      <img src="assets/Logo.jpg" alt="" width="42" height="42">
+      <span>Bermuda<span class="brand-sub">Chess Engine</span></span>
+    </a>
+    <nav class="topnav" aria-label="Main navigation">
+      <a href="#getting-started">Getting started</a>
+      <a href="#engine">Engine</a>
+      <a href="#evaluation">Evaluation</a>
+      <a href="#tuning">Tuning</a>
+      <a class="nav-github" href="https://github.com/Stephen-Akpan/Bermuda">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-copy">
+        <p class="eyebrow">UCI chess engine · C++17</p>
+        <h1>Meet <span>Bermuda.</span></h1>
+        <p class="hero-lede">A chess engine built around bitboards, handcrafted evaluation, and a search that keeps getting sharper.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#getting-started">Build the engine <span aria-hidden="true">↓</span></a>
+          <a class="button button-secondary" href="../ENGINE_TECHNICAL_OVERVIEW.md">Read the technical overview <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="hero-facts" aria-label="Project highlights">
+          <div><strong>C++17</strong><span>Modern C++</span></div>
+          <div><strong>UCI</strong><span>Standard protocol</span></div>
+          <div><strong>Bitboards</strong><span>Board representation</span></div>
+        </div>
+      </div>
+      <div class="hero-art">
+        <div class="art-glow"></div>
+        <img src="assets/LogoText.jpg" alt="Bermuda Chess Engine logo">
+        <div class="art-caption"><span class="status-dot"></span> Engine documentation</div>
+      </div>
+    </section>
+
+    <section class="feature-strip" aria-label="Engine capabilities">
+      <article><span class="feature-number">01</span><h2>Search</h2><p>Iterative deepening, PVS, aspiration windows, and selective pruning.</p></article>
+      <article><span class="feature-number">02</span><h2>Evaluation</h2><p>Tapered handcrafted terms for material, activity, threats, and king safety.</p></article>
+      <article><span class="feature-number">03</span><h2>Experiment</h2><p>Repeatable Cutechess matches and a resumable Texel/SPSA tuner.</p></article>
+    </section>
+
+    <div class="content-layout">
+      <aside class="sidebar">
+        <p class="sidebar-title">On this page</p>
+        <a href="#getting-started">Getting started</a>
+        <a href="#engine">How it works</a>
+        <a href="#evaluation">Evaluation</a>
+        <a href="#tuning">Tuning and testing</a>
+        <a href="#uci">UCI options</a>
+        <a href="#project">Project</a>
+      </aside>
+
+      <div class="content">
+        <section class="doc-section" id="getting-started">
+          <p class="eyebrow">01 — First steps</p>
+          <h2>Build and run Bermuda</h2>
+          <p>Bermuda is a UCI-compatible engine. Build it with <a href="https://xmake.io/">xmake</a>, then connect the executable to a chess GUI such as Cute Chess or Arena.</p>
+          <div class="code-card">
+            <div class="code-head"><span>PowerShell</span><span class="code-dots" aria-hidden="true">● ● ●</span></div>
+            <pre><code>            git clone https://github.com/Stephen-Akpan/Bermuda.git
+            cd Bermuda
+            xmake build bermuda
+            xmake test</code></pre>
+          </div>
+          <p>On Windows, the release engine is written to <code>build\windows\x64\release\bermuda.exe</code>. Use <code>xmake test</code> to run the project’s configured tests.</p>
+          <div class="callout"><strong>Requirements</strong><span>A C++17 compiler and xmake. Cute Chess is optional and is only needed for GUI play or engine matches.</span></div>
+        </section>
+
+        <section class="doc-section" id="engine">
+          <p class="eyebrow">02 — Under the hood</p>
+          <h2>Designed to search efficiently</h2>
+          <p>The engine combines bitboard move generation with iterative-deepening negamax search. At each iteration it uses principal variation search and aspiration windows, with transposition-table cutoffs and selective pruning to focus work on promising lines.</p>
+          <div class="cards-two">
+            <article class="info-card"><span class="card-icon">⌘</span><h3>Move ordering</h3><p>Transposition-table moves, captures scored with static exchange evaluation, killer moves, and history scores.</p></article>
+            <article class="info-card"><span class="card-icon">▦</span><h3>Position data</h3><p>Bitboards represent pieces and attacks. Make/unmake operations support search without copying the whole position.</p></article>
+          </div>
+          <p class="section-link"><a href="../ENGINE_TECHNICAL_OVERVIEW.md">Explore the technical overview <span aria-hidden="true">→</span></a></p>
+        </section>
+
+        <section class="doc-section" id="evaluation">
+          <p class="eyebrow">03 — Position scoring</p>
+          <h2>A tapered handcrafted evaluation</h2>
+          <p>Bermuda scores the position separately for the middlegame and endgame, then blends the two according to remaining material. Scores are returned in centipawns from the side-to-move’s perspective.</p>
+          <div class="term-grid">
+            <div><span class="term-mark">M</span><span><strong>Material and placement</strong><small>Piece values, piece-square tables, and material interactions.</small></span></div>
+            <div><span class="term-mark">P</span><span><strong>Pawns</strong><small>Structure, passed-pawn paths, support, and promotion races.</small></span></div>
+            <div><span class="term-mark">A</span><span><strong>Activity</strong><small>Mobility, outposts, rook activity, and safe central space.</small></span></div>
+            <div><span class="term-mark">K</span><span><strong>King and threats</strong><small>King-ring pressure, shelter, attacked pieces, and tactical targets.</small></span></div>
+          </div>
+          <div class="callout callout-blue"><strong>Tunable</strong><span>Feature-family and piece-value weights can be loaded at runtime using the <code>EvalParams</code> UCI option.</span></div>
+        </section>
+
+        <section class="doc-section" id="tuning">
+          <p class="eyebrow">04 — Improve and measure</p>
+          <h2>Experiments you can reproduce</h2>
+          <p>The standalone Texel tuner can fit evaluation weights from completed games. TriangleTest organizes data preparation, resumable SPSA optimization, and paired Cutechess validation into a file-backed experiment.</p>
+          <div class="code-card">
+            <div class="code-head"><span>Prepare a game-level dataset split</span><span class="code-dots" aria-hidden="true">● ● ●</span></div>
+            <pre><code>.\build\windows\x64\release\bermuda_tuner.exe `
+  --prepare-pgn games.pgn `
+  --train-out training.btd `
+  --validation-out validation.btd `
+  --format btd --split-seed 42</code></pre>
+          </div>
+          <p>Keep source games, tuning outputs, and final match results separate. Tune on a representative dataset, hold back an untouched set, and compare promising changes in paired games before adopting them.</p>
+          <div class="resource-links">
+            <a href="../TRIANGLE_TEST.md"><span>Workflow guide</span><strong>TriangleTest →</strong></a>
+            <a href="../bermuda_texel_tuner_design.md"><span>Implementation notes</span><strong>Tuner design →</strong></a>
+          </div>
+        </section>
+
+        <section class="doc-section" id="uci">
+          <p class="eyebrow">05 — Connect a GUI</p>
+          <h2>Useful UCI options</h2>
+          <div class="option-table" role="table" aria-label="UCI options">
+            <div class="option-row option-header" role="row"><span role="columnheader">Option</span><span role="columnheader">Purpose</span></div>
+            <div class="option-row" role="row"><code>Hash</code><span>Transposition-table memory in megabytes.</span></div>
+            <div class="option-row" role="row"><code>MoveOverhead</code><span>Clock reserve in milliseconds for communication and scheduling.</span></div>
+            <div class="option-row" role="row"><code>EvalParams</code><span>Path to a text file containing evaluation weights; empty resets built-in defaults.</span></div>
+            <div class="option-row" role="row"><code>Clear Hash</code><span>Clear the transposition table between searches.</span></div>
+          </div>
+          <p>Set an evaluation file in a GUI or Cutechess with <code>setoption name EvalParams value path-to-params.txt</code>. Invalid parameter files are rejected and reported.</p>
+        </section>
+
+        <section class="doc-section" id="project">
+          <p class="eyebrow">06 — Project information</p>
+          <h2>Built as an evolving engine</h2>
+          <p>Bermuda is a personal chess-engine project. Windows is the tested platform; Linux and macOS support remain unverified. Consult the repository for the current license and project status.</p>
+          <div class="project-links">
+            <a href="https://github.com/Stephen-Akpan/Bermuda">Source repository <span aria-hidden="true">↗</span></a>
+            <a href="../README.md">README <span aria-hidden="true">↗</span></a>
+            <a href="../LICENSE">License <span aria-hidden="true">↗</span></a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <a class="footer-brand" href="#top"><img src="assets/Logo.jpg" alt="" width="30" height="30"> Bermuda</a>
+    <span>Chess is a journey. Keep exploring.</span>
+    <a href="#top">Back to top ↑</a>
+  </footer>
+</body>
+</html>

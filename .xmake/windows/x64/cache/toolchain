@@ -1,1 +1,267 @@
-{ }
+{
+    tool_target_bermuda_windows_x64_ld = {
+        toolname = "link",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\link.exe]],
+        toolchain_info = {
+            name = "msvc",
+            cachekey = "msvc_arch_x64_plat_windows",
+            plat = "windows",
+            arch = "x64"
+        }
+    },
+    tool_target_bermuda_tuner_windows_x64_cxx = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    tool_target_magic_gen_windows_x64_cxx = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    tool_target_bermuda_tuner_tests_windows_x64_ld = {
+        toolname = "link",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\link.exe]],
+        toolchain_info = {
+            name = "msvc",
+            cachekey = "msvc_arch_x64_plat_windows",
+            plat = "windows",
+            arch = "x64"
+        }
+    },
+    tool_target_bermuda_tuner_tests_windows_x64_cxx = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    tool_target_bermuda_windows_x64_cxx = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    tool_target_bermuda_engine_windows_x64_cc = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    tool_target_bermuda_tests_windows_x64_cc = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    tool_target_bermuda_engine_windows_x64_cxx = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            cachekey = "msvc_arch_x64_plat_windows",
+            plat = "windows",
+            arch = "x64"
+        }
+    },
+    tool_target_magic_gen_windows_x64_ld = {
+        toolname = "link",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\link.exe]],
+        toolchain_info = {
+            name = "msvc",
+            cachekey = "msvc_arch_x64_plat_windows",
+            plat = "windows",
+            arch = "x64"
+        }
+    },
+    tool_target_bermuda_tests_windows_x64_cxx = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    tool_target_magic_gen_windows_x64_cc = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    zig_arch_x64_plat_windows = {
+        __global = true,
+        plat = "windows",
+        __checked = true,
+        arch = "x64"
+    },
+    tool_target_bermuda_tuner_windows_x64_cc = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    tool_target_bermuda_windows_x64_cc = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    tool_target_bermuda_tuner_lib_windows_x64_ar = {
+        toolname = "link",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\link.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    nim_arch_x64_plat_windows = {
+        __global = true,
+        plat = "windows",
+        __checked = true,
+        arch = "x64"
+    },
+    tool_target_bermuda_engine_windows_x64_ar = {
+        toolname = "link",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\link.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    tool_target_bermuda_tests_windows_x64_ld = {
+        toolname = "link",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\link.exe]],
+        toolchain_info = {
+            name = "msvc",
+            cachekey = "msvc_arch_x64_plat_windows",
+            plat = "windows",
+            arch = "x64"
+        }
+    },
+    tool_target_bermuda_tuner_tests_windows_x64_cc = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    msvc_arch_x64_plat_windows = {
+        vcarchs = {
+            "arm",
+            "arm64",
+            "arm64ec",
+            "x64",
+            "x86"
+        },
+        vs_toolset = "14.41.34120",
+        vs = "2022",
+        vs_sdkver = "10.0.22621.0",
+        __checked = true,
+        plat = "windows",
+        arch = "x64",
+        vcvars = {
+            WindowsLibPath = [[C:\Program Files (x86)\Windows Kits\10\UnionMetadata\10.0.22621.0;C:\Program Files (x86)\Windows Kits\10\References\10.0.22621.0]],
+            VSCMD_ARG_HOST_ARCH = "x64",
+            VCToolsVersion = "14.41.34120",
+            WindowsSdkDir = [[C:\Program Files (x86)\Windows Kits\10\]],
+            WindowsSDKVersion = "10.0.22621.0",
+            LIB = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\lib\x64;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8\lib\um\x64;C:\Program Files (x86)\Windows Kits\10\lib\10.0.22621.0\ucrt\x64;C:\Program Files (x86)\Windows Kits\10\\lib\10.0.22621.0\\um\x64]],
+            WindowsSdkVerBinPath = [[C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\]],
+            LIBPATH = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\lib\x64;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\lib\x86\store\references;C:\Program Files (x86)\Windows Kits\10\UnionMetadata\10.0.22621.0;C:\Program Files (x86)\Windows Kits\10\References\10.0.22621.0;C:\Windows\Microsoft.NET\Framework64\v4.0.30319]],
+            UCRTVersion = "10.0.22621.0",
+            UniversalCRTSdkDir = [[C:\Program Files (x86)\Windows Kits\10\]],
+            ExtensionSdkDir = [[C:\Program Files (x86)\Microsoft SDKs\Windows Kits\10\ExtensionSDKs]],
+            WindowsSdkBinPath = [[C:\Program Files (x86)\Windows Kits\10\bin\]],
+            VS170COMNTOOLS = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\]],
+            DevEnvdir = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\]],
+            VCToolsRedistDir = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Redist\MSVC\14.40.33807\]],
+            VSCMD_ARG_TGT_ARCH = "x64",
+            VCInstallDir = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\]],
+            PATH = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\VC\VCPackages;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\TestWindow;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\bin\Roslyn;C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\Extensions\Microsoft\CodeCoverage.Console;C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\\x64;C:\Program Files (x86)\Windows Kits\10\bin\\x64;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\;C:\VulkanSDK\1.3.261.1\Bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\Intel\WiFi\bin\;C:\Program Files\Common Files\Intel\WirelessCommon\;C:\Program Files\dotnet\;C:\Program Files (x86)\Intel\Intel(R) Management Engine Components\DAL;C:\Program Files\Intel\Intel(R) Management Engine Components\DAL;C:\Program Files\bin;C:\Program Files\CMake\bin;C:\Program Files\doxygen\bin;C:\Users\gmicp\.cargo\bin;C:\Users\gmicp\AppData\Local\Microsoft\WindowsApps;C:\premake-5.0.0-beta2-windows;C:\xmake;C:\Users\gmicp\AppData\Local\Programs\Microsoft VS Code\bin;C:\msys64\ucrt64\bin;C:\Users\gmicp\AppData\Local\GitHubDesktop\bin;C:\msys64\mingw64\bin;C:\msys64\clang64\bin;C:\Users\gmicp\.dotnet\tools;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\VC\Linux\bin\ConnectionManagerExe]],
+            VSCMD_VER = "17.11.4",
+            VSInstallDir = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\]],
+            VSCMD_ARG_app_plat = "Desktop",
+            VCToolsInstallDir = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\]],
+            INCLUDE = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\include;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\ucrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.22621.0\\um;C:\Program Files (x86)\Windows Kits\10\\include\10.0.22621.0\\shared;C:\Program Files (x86)\Windows Kits\10\\include\10.0.22621.0\\winrt;C:\Program Files (x86)\Windows Kits\10\\include\10.0.22621.0\\cppwinrt;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8\include\um]],
+            VisualStudioVersion = "17.0",
+            VCIDEInstallDir = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\VC\]]
+        },
+        __global = true
+    },
+    tool_target_bermuda_tuner_windows_x64_ld = {
+        toolname = "link",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\link.exe]],
+        toolchain_info = {
+            name = "msvc",
+            cachekey = "msvc_arch_x64_plat_windows",
+            plat = "windows",
+            arch = "x64"
+        }
+    },
+    tool_target_bermuda_tuner_lib_windows_x64_cc = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            plat = "windows",
+            arch = "x64",
+            cachekey = "msvc_arch_x64_plat_windows"
+        }
+    },
+    tool_target_bermuda_tuner_lib_windows_x64_cxx = {
+        toolname = "cl",
+        program = [[C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.41.34120\bin\HostX64\x64\cl.exe]],
+        toolchain_info = {
+            name = "msvc",
+            cachekey = "msvc_arch_x64_plat_windows",
+            plat = "windows",
+            arch = "x64"
+        }
+    }
+}

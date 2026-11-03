@@ -58,12 +58,13 @@ target("bermuda_tests")
     add_files("tests/test_*.cpp", "tests/main.cpp", "tests/catch_amalgamated.cpp")
     add_headerfiles("tests/*.hpp")
     add_includedirs("engine")
-    add_deps("bermuda_engine")
+    add_deps("bermuda_engine", "bermuda_tuner_lib")
     set_group("Tests")
-    
+
     -- Add test after build
     after_build(function (target)
-        print("✓ Tests built successfully: " .. target:targetfile())
+        local output = target:targetfile() or target:targetdir() or "<unknown>"
+        print("✓ Tests built successfully: " .. tostring(output))
     end)
 
 -- ============================================================================
@@ -75,6 +76,28 @@ target("magic_gen")
     add_files("tools/magic_gen.cpp")
     set_group("Tools")
 
+target("bermuda_tuner_lib")
+    set_kind("static")
+    add_files("tools/texel_tuner/src/**.cpp")
+    add_headerfiles("tools/texel_tuner/include/**.h")
+    add_includedirs("tools/texel_tuner/include", {public = true})
+    add_includedirs("engine", {public = true})
+    add_deps("bermuda_engine")
+    set_group("Tools")
+
+target("bermuda_tuner_tests")
+    set_kind("binary")
+    add_files("tests/test_tuner.cpp", "tests/main.cpp", "tests/catch_amalgamated.cpp")
+    add_includedirs("tests")
+    add_deps("bermuda_tuner_lib")
+    set_group("Tests")
+
+target("bermuda_tuner")
+    set_kind("binary")
+    add_files("tools/texel_tuner.cpp")
+    add_deps("bermuda_tuner_lib")
+    set_group("Tools")
+
 -- ============================================================================
 -- Custom Tasks
 -- ============================================================================
@@ -84,12 +107,28 @@ task("test")
     set_menu {usage = "xmake test", description = "Run all unit tests"}
     on_run(function ()
         print("Running tests...")
-        local exe = path.join(get_config("buildir"), get_config("plat"), get_config("arch"), 
-                             is_mode("debug") and "debug" or "release", "bermuda_tests")
-        if is_host("windows") then
-            exe = exe .. ".exe"
+        local buildir = get_config("buildir") or "build"
+        local plat = get_config("plat") or os.host()
+        local arch = get_config("arch") or os.arch()
+        local mode_name = is_mode("debug") and "debug" or "release"
+        local suffix = is_host("windows") and ".exe" or ""
+        local tests = {
+            path.join(buildir, plat, arch, mode_name, "bermuda_tests" .. suffix),
+            path.join(buildir, plat, arch, mode_name, "bermuda_tuner_tests" .. suffix),
+        }
+        for _, exe in ipairs(tests) do
+            if not os.isfile(exe) then
+                print("Missing test binary: " .. exe)
+                print("Building required test targets...")
+                os.execv("xmake", {"build", "bermuda_tests", "bermuda_tuner_tests"})
+                break
+            end
         end
-        os.execv(exe)
+        for _, exe in ipairs(tests) do
+            if os.isfile(exe) then
+                os.execv(exe)
+            end
+        end
     end)
 
 -- Build documentation

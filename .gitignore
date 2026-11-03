@@ -3,6 +3,7 @@ build/
 .xmake/
 .vscode/
 vs2022/
+experiments/
 
 # Prerequisites
 *.d
