@@ -1,0 +1,22 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: xmake-io/github-action-setup-xmake@v1
+      - name: Configure release build
+        run: xmake f -m release
+      - name: Build engine
+        run: xmake build bermuda
+      - name: Build engine tests
+        run: xmake build bermuda_tests
+      - name: Build tuner tests
+        run: xmake build bermuda_tuner_tests
+      - name: Run tests
+        run: xmake test

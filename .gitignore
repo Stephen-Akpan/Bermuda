@@ -1,9 +1,27 @@
-# Folders
-build/
-.xmake/
-.vscode/
-vs2022/
-experiments/
+# Build output and local build-system state
+/build/
+/.xmake/
+
+# IDE-generated and machine-specific files
+/.vscode/
+**/.vs/
+*.vcxproj.user
+*.suo
+*.VC.db
+*.ipch/
+__pycache__/
+*.py[cod]
+
+# Local experiment data and bundled third-party executable
+/experiments/
+/cutechess-1.4.0-win64/
+
+# NNUE training outputs (keep scripts and documentation versionable)
+/nnue-training/.venv/
+/nnue-training/__pycache__/
+/nnue-training/data/
+/nnue-training/checkpoints-cpu/
+/nnue-training/Untitled-1.sh
 
 # Prerequisites
 *.d

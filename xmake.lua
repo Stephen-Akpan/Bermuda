@@ -113,20 +113,29 @@ task("test")
         local mode_name = is_mode("debug") and "debug" or "release"
         local suffix = is_host("windows") and ".exe" or ""
         local tests = {
-            path.join(buildir, plat, arch, mode_name, "bermuda_tests" .. suffix),
-            path.join(buildir, plat, arch, mode_name, "bermuda_tuner_tests" .. suffix),
+            {
+                target = "bermuda_tests",
+                path = path.join(buildir, plat, arch, mode_name, "bermuda_tests" .. suffix)
+            },
+            {
+                target = "bermuda_tuner_tests",
+                path = path.join(buildir, plat, arch, mode_name, "bermuda_tuner_tests" .. suffix)
+            },
         }
-        for _, exe in ipairs(tests) do
-            if not os.isfile(exe) then
-                print("Missing test binary: " .. exe)
+        for _, test in ipairs(tests) do
+            if not os.isfile(test.path) then
+                print("Missing test binary: " .. test.path)
                 print("Building required test targets...")
-                os.execv("xmake", {"build", "bermuda_tests", "bermuda_tuner_tests"})
-                break
+                local result = os.execv("xmake", {"build", test.target})
+                if result ~= 0 or not os.isfile(test.path) then
+                    raise("Failed to build test target: " .. test.target)
+                end
             end
         end
-        for _, exe in ipairs(tests) do
-            if os.isfile(exe) then
-                os.execv(exe)
+        for _, test in ipairs(tests) do
+            local result = os.execv(test.path)
+            if result ~= 0 then
+                raise("Test executable failed: " .. test.path)
             end
         end
     end)

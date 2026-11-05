@@ -29,7 +29,8 @@ inputs and outputs so a run can be inspected, stopped, and resumed.
   opening suite.
 
 ```powershell
-xmake build bermuda bermuda_tuner
+xmake build bermuda
+xmake build bermuda_tuner
 ```
 
 ## Run a complete experiment
