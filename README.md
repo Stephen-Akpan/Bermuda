@@ -67,8 +67,7 @@ before adopting them.
 ## Documentation
 
 The [technical overview](ENGINE_TECHNICAL_OVERVIEW.md) describes the current
-evaluation, search, score conventions, and implementation structure. A visual
-guide is available at [docs/index.html](docs/index.html).
+evaluation, search, score conventions, and implementation structure.
 
 ## Acknowledgements
 
