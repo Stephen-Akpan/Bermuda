@@ -262,25 +262,27 @@ static i32 quiescence(SearchInfo& info, Stack* ss, i32 alpha, i32 beta) {
 
     if (ss->ply >= MAX_PLY - 1) {
         if (!in_check)
-            return Eval::evaluate(info.pos);
+            return Eval::evaluate(info.pos, ss->nnue);
 
         MoveList evasions;
         MoveGen::generate_moves(info.pos, evasions);
         i32 best_evasion = -INF;
         for (i32 i = 0; i < evasions.size(); ++i) {
             const Move move = evasions[i];
+            NNUE::update_for_move(info.pos, move, ss->nnue, (ss + 1)->nnue);
             const UndoInfo undo = info.pos.make_move(move);
             const bool legal = !info.pos.is_attacked_by(
                 info.pos.king_square(flip(info.pos.side_to_move())),
                 info.pos.side_to_move());
             if (legal)
-                best_evasion = std::max(best_evasion, -Eval::evaluate(info.pos));
+                best_evasion = std::max(
+                    best_evasion, -Eval::evaluate(info.pos, (ss + 1)->nnue));
             info.pos.unmake_move(move, undo);
         }
         return best_evasion == -INF ? mated_in(ss->ply) : best_evasion;
     }
 
-    i32 best_score = in_check ? -INF : Eval::evaluate(info.pos);
+    i32 best_score = in_check ? -INF : Eval::evaluate(info.pos, ss->nnue);
 
     if (!in_check) {
         if (best_score >= beta)
@@ -437,7 +439,7 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
     }
 
     if (!in_check)
-        ss->static_eval = Eval::evaluate(info.pos);
+        ss->static_eval = Eval::evaluate(info.pos, ss->nnue);
 
     const Colour us = info.pos.side_to_move();
     const bool has_non_pawn_material =
@@ -474,6 +476,7 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
 
         const NullMoveUndo null_undo = info.pos.make_null_move();
         (ss + 1)->ply = ss->ply + 1;
+        (ss + 1)->nnue = ss->nnue;
         (ss + 1)->null_move_allowed = false;
         const i32 null_score = -search(
             info, ss + 1, depth - 1 - reduction, -beta, -beta + 1);
@@ -558,6 +561,7 @@ static i32 search(SearchInfo& info, Stack* ss, i32 depth, i32 alpha, i32 beta) {
             continue;
         }
 
+        NNUE::update_for_move(info.pos, m, ss->nnue, (ss + 1)->nnue);
         UndoInfo undo = info.pos.make_move(m);
 
         if (info.pos.is_attacked_by(
@@ -739,7 +743,8 @@ Move start(SearchInfo& info) {
     constexpr i32 ASPIRATION_DELTA     = 25;
     constexpr i32 ASPIRATION_MIN_DEPTH = 5;
 
-    Eval::evaluate(info.pos); // computed_accumulation = 1
+    NNUE::refresh(info.pos, info.stack[0].nnue);
+    Eval::evaluate(info.pos, info.stack[0].nnue);
 
     for (i32 depth = 1; depth <= info.limits.depth; depth++) {
         info.root_depth = depth;

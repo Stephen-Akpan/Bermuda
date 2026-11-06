@@ -1,6 +1,7 @@
 #include "eval.h"
 
 #include "bitboard.h"
+#include "nnue.h"
 #include "psqt.h"
 
 #include <algorithm>
@@ -747,6 +748,14 @@ bool insufficient_material(const Position& pos) {
 } // namespace
 
 Score evaluate(const Position& pos) {
+    if (NNUE::is_loaded())
+        return NNUE::evaluate(pos);
+    return evaluate(pos, current_parameters);
+}
+
+Score evaluate(const Position& pos, const NNUE::Accumulator& accumulator) {
+    if (NNUE::is_loaded())
+        return NNUE::evaluate(pos, accumulator);
     return evaluate(pos, current_parameters);
 }
 

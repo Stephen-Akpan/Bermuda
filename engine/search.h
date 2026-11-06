@@ -38,6 +38,7 @@ struct Stack {
     i32  ply;                   // Distance from root
     i32  static_eval;           // Cached static evaluation (set on first visit)
     bool null_move_allowed;     // False after a null move to prevent consecutive nulls
+    NNUE::Accumulator nnue;
 };
 
 // ============================================================================
@@ -139,6 +140,7 @@ struct SearchInfo {
             stack[i].ply               = i;
             stack[i].static_eval       = 0;
             stack[i].null_move_allowed = true;
+            stack[i].nnue              = NNUE::Accumulator{};
         }
 
         for (i32 i = 0; i < MAX_PLY; i++) {

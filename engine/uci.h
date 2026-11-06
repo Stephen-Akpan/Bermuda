@@ -43,6 +43,7 @@ struct Options {
     i32  hash_mb    = 64;     // TT size in megabytes
     i32  move_overhead = 50;  // Safety buffer subtracted from time (ms)
     std::string eval_params;
+    std::string eval_file;
 };
 
 // Global options instance

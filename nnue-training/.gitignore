@@ -1,0 +1,10 @@
+/.venv/
+/checkpoints/
+/checkpoints-cpu/
+/data/*.npz
+/data/*.nnue
+/data/*.pgn
+/data/*.log
+/data/run-metadata.json
+/data/*.txt
+/data/*.bin

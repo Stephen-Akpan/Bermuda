@@ -2,6 +2,7 @@
 #include "movegen.h"
 #include "perft.h"
 #include "eval.h"
+#include "nnue.h"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -77,7 +78,7 @@ static Move find_move(const Position& pos, const std::string& uci) {
 // ============================================================================
 
 static void cmd_uci() {
-    std::cout << "id name Bermuda 0.0.1\n";
+    std::cout << "id name Bermuda 0.1.0\n";
     std::cout << "id author AKPAN Stephen & DAUDA Mishael\n";
     std::cout << "\n";
 
@@ -96,6 +97,8 @@ static void cmd_uci() {
     std::cout << "option name Clear Hash type button\n";
     std::cout << "option name EvalParams type string default "
               << options.eval_params << "\n";
+    std::cout << "option name EvalFile type string default "
+              << options.eval_file << "\n";
 
     std::cout << "\nuciok\n";
 }
@@ -109,13 +112,21 @@ void cmd_setoption(const std::string& line) {
     if (name_pos == std::string::npos) return;
     name_pos += 5;
 
-    size_t value_pos = line.find(" value ");
+    size_t value_pos = line.find(" value", name_pos);
+    if (value_pos != std::string::npos) {
+        const size_t value_end = value_pos + 6;
+        if (value_end < line.size() && line[value_end] != ' ')
+            value_pos = std::string::npos;
+    }
     std::string name_str;
     std::string value_str;
 
     if (value_pos != std::string::npos) {
         name_str  = line.substr(name_pos, value_pos - name_pos);
-        value_str = line.substr(value_pos + 7);
+        size_t value_start = value_pos + 6;
+        while (value_start < line.size() && line[value_start] == ' ')
+            ++value_start;
+        value_str = line.substr(value_start);
     } else {
         name_str = line.substr(name_pos);
     }
@@ -163,6 +174,21 @@ void cmd_setoption(const std::string& line) {
             } else {
                 std::cerr << "info string Evaluation parameter error: "
                           << error << "\n";
+            }
+        }
+    }
+    else if (name_lower == "evalfile") {
+        if (value_str.empty()) {
+            NNUE::clear();
+            options.eval_file.clear();
+            std::cout << "info string NNUE disabled; using handcrafted evaluation\n";
+        } else {
+            std::string error;
+            if (NNUE::load(value_str, error)) {
+                options.eval_file = value_str;
+                std::cout << "info string NNUE loaded from " << value_str << "\n";
+            } else {
+                std::cerr << "info string NNUE load error: " << error << "\n";
             }
         }
     }
@@ -281,6 +307,11 @@ static void cmd_display(const SearchInfo& info) {
     info.pos.print();
 }
 
+static void cmd_eval(const SearchInfo& info) {
+    std::cout << "info string eval " << Eval::evaluate(info.pos) << " cp ("
+              << (NNUE::is_loaded() ? "NNUE" : "HCE") << ")\n";
+}
+
 static void cmd_perft(SearchInfo& info, const std::string& line) {
     i32 depth = parse_int(line, "perft", 1);
     Perft::divide(info.pos, depth);
@@ -332,6 +363,9 @@ void loop() {
         }
         else if (line == "d") {
             cmd_display(info);
+        }
+        else if (line == "eval") {
+            cmd_eval(info);
         }
         else if (line.substr(0, 5) == "perft") {
             cmd_perft(info, line);

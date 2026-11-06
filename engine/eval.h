@@ -1,6 +1,7 @@
 #pragma once
 
 #include "position.h"
+#include "nnue.h"
 #include <string>
 
 namespace Eval
@@ -35,6 +36,7 @@ struct Parameters {
 // Evaluate the position with a tapered handcrafted evaluation.
 // Returns centipawns from the side-to-move's perspective.
 Score evaluate(const Position& pos);
+Score evaluate(const Position& pos, const NNUE::Accumulator& accumulator);
 Score evaluate(const Position& pos, const Parameters& parameters);
 
 bool load_parameters(const std::string& path, std::string& error);

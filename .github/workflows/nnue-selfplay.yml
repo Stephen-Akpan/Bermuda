@@ -1,0 +1,174 @@
+name: Bermuda self-play data batch
+
+on:
+  workflow_dispatch:
+    inputs:
+      games:
+        description: Total games; must be even because openings are color-paired
+        required: true
+        default: 200
+        type: number
+      time_control:
+        description: Cutechess time control, for example 5+0
+        required: true
+        default: 5+0
+        type: string
+      concurrency:
+        description: Number of concurrent games
+        required: true
+        default: 4
+        type: number
+      hash_mb:
+        description: Hash per engine process in MB
+        required: true
+        default: 32
+        type: number
+      opening_plies:
+        description: Random legal opening length
+        required: true
+        default: 16
+        type: number
+      seed:
+        description: Random seed; 0 derives one from the workflow run ID
+        required: true
+        default: 0
+        type: number
+      nnue_url:
+        description: Optional HTTPS URL to a Bermuda .nnue file; blank uses HCE
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: windows-latest
+    timeout-minutes: 350
+    steps:
+      - name: Checkout training branch
+        uses: actions/checkout@v4
+
+      - name: Set up xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build Bermuda
+        run: |
+          xmake f -m release
+          xmake build bermuda
+
+      - name: Install data tools
+        run: python -m pip install python-chess==1.999
+
+      - name: Generate randomized opening suite
+        working-directory: nnue-training
+        env:
+          GAMES: ${{ inputs.games }}
+          OPENING_PLIES: ${{ inputs.opening_plies }}
+          SEED: ${{ inputs.seed }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          $games = [int]$env:GAMES
+          if ($games -lt 2 -or $games -gt 1000 -or ($games % 2) -ne 0) {
+            throw 'games must be even and between 2 and 1000'
+          }
+          $plies = [int]$env:OPENING_PLIES
+          if ($plies -lt 0 -or $plies -gt 30) { throw 'opening_plies must be in [0, 30]' }
+          $seed = [long]$env:SEED
+          if ($seed -eq 0) { $seed = [long]$env:RUN_ID }
+          New-Item -ItemType Directory -Force .\data | Out-Null
+          python .\generate_openings.py --count ($games / 2) --plies $plies --seed $seed --out .\data\openings.pgn
+          "NNUE_OPENING_SEED=$seed" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Download Cutechess CLI
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'cutechess-1.5.1-win64.zip'
+          $installDir = Join-Path $env:RUNNER_TEMP 'cutechess'
+          Invoke-WebRequest -Uri 'https://github.com/cutechess/cutechess/releases/download/v1.5.1/cutechess-1.5.1-win64.zip' -OutFile $archive
+          $expected = '048942ca3473db860cb914fe94108da37051f693f47e368688ec6ec450f924bc'
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Cutechess archive SHA256 mismatch: $actual" }
+          Expand-Archive -LiteralPath $archive -DestinationPath $installDir -Force
+          $cli = Get-ChildItem -Path $installDir -Filter 'cutechess-cli.exe' -Recurse | Select-Object -First 1
+          if (-not $cli) { throw 'cutechess-cli.exe not found in release archive' }
+          "CUTECHESS_CLI=$($cli.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Run paired self-play batch
+        working-directory: nnue-training
+        env:
+          GAMES: ${{ inputs.games }}
+          TIME_CONTROL: ${{ inputs.time_control }}
+          CONCURRENCY: ${{ inputs.concurrency }}
+          HASH_MB: ${{ inputs.hash_mb }}
+          NNUE_URL: ${{ inputs.nnue_url }}
+        run: |
+          $games = [int]$env:GAMES
+          $concurrency = [int]$env:CONCURRENCY
+          $hashMb = [int]$env:HASH_MB
+          if ($concurrency -lt 1 -or $concurrency -gt 8) { throw 'concurrency must be in [1, 8]' }
+          if ($hashMb -lt 1 -or $hashMb -gt 4096) { throw 'hash_mb must be in [1, 4096]' }
+          if ($env:TIME_CONTROL -notmatch '^\d+(\+\d+|:\d+(\+\d+)?)$') { throw 'time_control must look like 5+0 or 40:00+0' }
+
+          $root = $env:GITHUB_WORKSPACE
+          $engine = Join-Path $root 'build\windows\x64\release\bermuda.exe'
+          $dataDir = Join-Path $root 'nnue-training\data'
+          $pgn = Join-Path $dataDir 'selfplay.pgn'
+          $log = Join-Path $dataDir 'cutechess.log'
+          $networkPath = ''
+          $networkHash = 'HCE'
+          $evalOption = 'option.EvalFile='
+          if (-not [string]::IsNullOrWhiteSpace($env:NNUE_URL)) {
+            if ($env:NNUE_URL -notmatch '^https://') { throw 'nnue_url must use HTTPS' }
+            $networkPath = Join-Path $dataDir 'teacher.nnue'
+            Invoke-WebRequest -Uri $env:NNUE_URL -OutFile $networkPath
+            $networkHash = (Get-FileHash -Algorithm SHA256 $networkPath).Hash.ToLowerInvariant()
+            $evalOption = "option.EvalFile=$networkPath"
+          }
+
+          $pairCount = [int]($games / 2)
+          $arguments = @(
+            '-event', 'Bermuda NNUE self-play data',
+            '-srand', "$env:NNUE_OPENING_SEED",
+            '-engine', 'name=Bermuda-A', "cmd=$engine", 'proto=uci', "option.Hash=$hashMb", $evalOption,
+            '-engine', 'name=Bermuda-B', "cmd=$engine", 'proto=uci', "option.Hash=$hashMb", $evalOption,
+            '-each', "tc=$($env:TIME_CONTROL)",
+            '-openings', "file=$dataDir\openings.pgn", 'format=pgn', 'order=random', 'policy=round',
+            '-games', '2', '-rounds', "$pairCount", '-concurrency', "$concurrency", '-recover',
+            '-pgnout', $pgn, 'fi'
+          )
+          & $env:CUTECHESS_CLI @arguments 2>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) { throw "Cutechess exited with code $LASTEXITCODE" }
+
+          $engineHash = (Get-FileHash -Algorithm SHA256 $engine).Hash.ToLowerInvariant()
+          @{
+            gamesRequested = $games
+            pairsRequested = $pairCount
+            timeControl = $env:TIME_CONTROL
+            concurrency = $concurrency
+            hashMb = $hashMb
+            openingSeed = [long]$env:NNUE_OPENING_SEED
+            network = $networkHash
+            engineSha256 = $engineHash
+            workflowRunId = $env:GITHUB_RUN_ID
+            workflowCommit = $env:GITHUB_SHA
+          } | ConvertTo-Json | Set-Content (Join-Path $dataDir 'run-metadata.json') -Encoding utf8
+
+      - name: Upload PGN, log, openings, and metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nnue-selfplay-${{ github.run_id }}
+          path: |
+            nnue-training/data/selfplay.pgn
+            nnue-training/data/cutechess.log
+            nnue-training/data/openings.pgn
+            nnue-training/data/run-metadata.*
+          if-no-files-found: warn
+          retention-days: 30
