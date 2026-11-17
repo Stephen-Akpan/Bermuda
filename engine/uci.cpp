@@ -99,6 +99,12 @@ static void cmd_uci() {
               << options.eval_params << "\n";
     std::cout << "option name EvalFile type string default "
               << options.eval_file << "\n";
+    std::cout << "option name GraphEvalFile type string default "
+              << options.graph_eval_file << "\n";
+    std::cout << "option name GraphEval type check default "
+              << (options.graph_eval ? "true" : "false") << "\n";
+    std::cout << "option name GraphScale type string default "
+              << options.graph_scale << "\n";
 
     std::cout << "\nuciok\n";
 }
@@ -180,16 +186,75 @@ void cmd_setoption(const std::string& line) {
     else if (name_lower == "evalfile") {
         if (value_str.empty()) {
             NNUE::clear();
+            std::string disableError;
+            Eval::set_graph_residual_enabled(false, disableError);
+            options.graph_eval = false;
             options.eval_file.clear();
             std::cout << "info string NNUE disabled; using handcrafted evaluation\n";
         } else {
             std::string error;
             if (NNUE::load(value_str, error)) {
+                std::string disableError;
+                Eval::set_graph_residual_enabled(false, disableError);
+                options.graph_eval = false;
                 options.eval_file = value_str;
                 std::cout << "info string NNUE loaded from " << value_str << "\n";
             } else {
                 std::cerr << "info string NNUE load error: " << error << "\n";
             }
+        }
+    }
+    else if (name_lower == "graphevalfile") {
+        if (value_str.empty()) {
+            Eval::clear_graph_model();
+            options.graph_eval_file.clear();
+            options.graph_eval = false;
+            std::cout << "info string GraphEvaluator disabled\n";
+        } else {
+            std::string error;
+            if (Eval::load_graph_model(value_str, error)) {
+                Eval::set_graph_residual_enabled(false, error);
+                options.graph_eval_file = value_str;
+                options.graph_eval = false;
+                std::cout << "info string GraphEvaluator loaded from " << value_str << "\n";
+            } else {
+                std::cerr << "info string GraphEvaluator load error: " << error << "\n";
+            }
+        }
+    }
+    else if (name_lower == "grapheval") {
+        std::string value_lower = value_str;
+        std::transform(value_lower.begin(), value_lower.end(),
+                       value_lower.begin(), ::tolower);
+        if (value_lower != "true" && value_lower != "false") {
+            std::cerr << "info string Invalid GraphEval value: " << value_str << "\n";
+        } else {
+            const bool enabled = value_lower == "true";
+            std::string error;
+            if (Eval::set_graph_residual_enabled(enabled, error)) {
+                options.graph_eval = enabled;
+                std::cout << "info string Graph residuals "
+                          << (enabled ? "enabled" : "disabled") << "\n";
+            } else {
+                std::cerr << "info string GraphEval error: " << error << "\n";
+            }
+        }
+    }
+    else if (name_lower == "graphscale") {
+        try {
+            std::size_t parsedLength = 0;
+            const f32 scale = std::stof(value_str, &parsedLength);
+            if (parsedLength != value_str.size())
+                throw std::invalid_argument("trailing characters");
+            std::string error;
+            if (Eval::set_graph_residual_scale(scale, error)) {
+                options.graph_scale = scale;
+                std::cout << "info string Graph residual scale set to " << scale << "\n";
+            } else {
+                std::cerr << "info string GraphScale error: " << error << "\n";
+            }
+        } catch (...) {
+            std::cerr << "info string Invalid GraphScale value: " << value_str << "\n";
         }
     }
     else {
@@ -308,8 +373,10 @@ static void cmd_display(const SearchInfo& info) {
 }
 
 static void cmd_eval(const SearchInfo& info) {
+    const char* evaluator = Eval::graph_residual_enabled()
+        ? "NNUE+GNN" : (NNUE::is_loaded() ? "NNUE" : "HCE");
     std::cout << "info string eval " << Eval::evaluate(info.pos) << " cp ("
-              << (NNUE::is_loaded() ? "NNUE" : "HCE") << ")\n";
+              << evaluator << ")\n";
 }
 
 static void cmd_perft(SearchInfo& info, const std::string& line) {

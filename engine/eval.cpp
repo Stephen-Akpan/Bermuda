@@ -1,6 +1,7 @@
 #include "eval.h"
 
 #include "bitboard.h"
+#include "graph_evaluator.h"
 #include "nnue.h"
 #include "psqt.h"
 
@@ -9,6 +10,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 
 namespace Eval {
@@ -71,6 +73,10 @@ ScorePair scaled(ScorePair score, double factor) {
 }
 
 Eval::Parameters current_parameters;
+GNN::GraphEvaluator graph_model;
+bool use_graph_residual = false;
+bool use_reordered_graph_inference = false;
+f32 graph_scale = 1.0f;
 
 struct AttackInfo {
     Bitboard by_type[6] = {};
@@ -747,15 +753,111 @@ bool insufficient_material(const Position& pos) {
 
 } // namespace
 
+bool load_graph_model(const std::string& path, std::string& error) {
+    if (!graph_model.load(path, error))
+        return false;
+    use_graph_residual = false;
+    use_reordered_graph_inference = false;
+    return true;
+}
+
+void clear_graph_model() {
+    graph_model = GNN::GraphEvaluator{};
+    use_graph_residual = false;
+    use_reordered_graph_inference = false;
+}
+
+bool graph_model_loaded() {
+    return graph_model.is_loaded();
+}
+
+bool graph_residual_enabled() {
+    return use_graph_residual;
+}
+
+f32 graph_residual_scale() {
+    return graph_scale;
+}
+
+bool set_graph_residual_enabled(bool enabled, std::string& error) {
+    if (enabled && !graph_model.is_loaded()) {
+        error = "load a GraphEvaluator model before enabling graph residuals";
+        return false;
+    }
+    if (enabled && !NNUE::is_loaded()) {
+        error = "load the NNUE baseline before enabling graph residuals";
+        return false;
+    }
+    use_graph_residual = enabled;
+    error.clear();
+    return true;
+}
+
+bool set_graph_residual_scale(f32 scale, std::string& error) {
+    if (!std::isfinite(scale) || scale < 0.0f) {
+        error = "graph residual scale must be finite and non-negative";
+        return false;
+    }
+    graph_scale = scale;
+    error.clear();
+    return true;
+}
+
+void set_graph_inference_reordered(bool enabled) {
+    use_reordered_graph_inference = enabled;
+}
+
+namespace {
+
+Score combine_graph_residual(const Position& pos,
+                             const NNUE::Accumulator& accumulator,
+                             Score baselineScore) {
+    if (!use_graph_residual || graph_scale == 0.0f)
+        return baselineScore;
+
+    GNN::GraphFeatures features;
+    GNN::GraphEncoder encoder;
+    encoder.encode(pos, features);
+    const f32 graphResidual = (use_reordered_graph_inference
+        ? graph_model.evaluate_residual_reordered(features)
+        : graph_model.evaluate_residual(features)) * graph_scale;
+    if (graphResidual == 0.0f)
+        return baselineScore;
+
+    const f32 baselineWhiteProbability = NNUE::predict_white_probability(pos, accumulator);
+    constexpr f32 PROBABILITY_EPSILON = 1e-6f;
+    const f32 combinedWhiteProbability = std::clamp(
+        baselineWhiteProbability + graphResidual,
+        PROBABILITY_EPSILON,
+        1.0f - PROBABILITY_EPSILON);
+    const f64 whiteLogit = std::log(
+        static_cast<f64>(combinedWhiteProbability)
+        / static_cast<f64>(1.0f - combinedWhiteProbability));
+    const f64 whiteCentipawns = std::clamp(
+        whiteLogit * NNUE::eval_scale(), -29000.0, 29000.0);
+    const Score whiteScore = static_cast<Score>(std::lround(whiteCentipawns));
+    return pos.side_to_move() == WHITE ? whiteScore : -whiteScore;
+}
+
+} // namespace
+
 Score evaluate(const Position& pos) {
-    if (NNUE::is_loaded())
+    if (NNUE::is_loaded() && !use_graph_residual)
         return NNUE::evaluate(pos);
+    if (NNUE::is_loaded()) {
+        NNUE::Accumulator accumulator;
+        NNUE::refresh(pos, accumulator);
+        const Score baselineScore = NNUE::evaluate(pos, accumulator);
+        return combine_graph_residual(pos, accumulator, baselineScore);
+    }
     return evaluate(pos, current_parameters);
 }
 
 Score evaluate(const Position& pos, const NNUE::Accumulator& accumulator) {
-    if (NNUE::is_loaded())
-        return NNUE::evaluate(pos, accumulator);
+    if (NNUE::is_loaded()) {
+        const Score baselineScore = NNUE::evaluate(pos, accumulator);
+        return combine_graph_residual(pos, accumulator, baselineScore);
+    }
     return evaluate(pos, current_parameters);
 }
 

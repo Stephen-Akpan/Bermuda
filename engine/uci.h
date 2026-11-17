@@ -44,6 +44,9 @@ struct Options {
     i32  move_overhead = 50;  // Safety buffer subtracted from time (ms)
     std::string eval_params;
     std::string eval_file;
+    std::string graph_eval_file;
+    bool graph_eval = false;
+    f32 graph_scale = 1.0f;
 };
 
 // Global options instance

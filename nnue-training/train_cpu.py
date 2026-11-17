@@ -43,15 +43,13 @@ def features_for(board: chess.Board, perspective: chess.Color) -> list[int]:
     return features
 
 
-def load_data(path: Path, max_positions: int | None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    feature_rows = []
-    score_rows = []
-    result_rows = []
+def iter_data_rows(path: Path, max_positions: int | None = None):
+    valid_rows = 0
     errors = 0
 
     with path.open("r", encoding="utf-8") as source:
-        for line_number, line in enumerate(source, 1):
-            if max_positions is not None and len(feature_rows) >= max_positions:
+        for line in source:
+            if max_positions is not None and valid_rows >= max_positions:
                 break
             fields = line.rstrip("\r\n").split("|")
             if len(fields) != 3:
@@ -81,22 +79,47 @@ def load_data(path: Path, max_positions: int | None) -> tuple[np.ndarray, np.nda
                 else:
                     score_stm, result_stm = -score_white, 1.0 - result_white
 
-                feature_rows.append(row)
-                score_rows.append(score_stm)
-                result_rows.append(result_stm)
+                valid_rows += 1
+                yield row, score_stm, result_stm, board
             except (ValueError, IndexError):
                 errors += 1
 
     if errors:
         print(f"Skipped malformed rows: {errors}")
+
+
+def load_data(
+    path: Path,
+    max_positions: int | None,
+    *,
+    include_boards: bool = False,
+) -> (
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+    | tuple[np.ndarray, np.ndarray, np.ndarray, list[chess.Board]]
+):
+    feature_rows = []
+    score_rows = []
+    result_rows = []
+    boards = [] if include_boards else None
+
+    for row, score, result, board in iter_data_rows(path, max_positions):
+        feature_rows.append(row)
+        score_rows.append(score)
+        result_rows.append(result)
+        if boards is not None:
+            boards.append(board)
+
     if not feature_rows:
         raise ValueError(f"No valid positions found in {path}")
 
-    return (
+    data = (
         np.stack(feature_rows),
         np.asarray(score_rows, dtype=np.float32),
         np.asarray(result_rows, dtype=np.float32),
     )
+    if boards is not None:
+        return (*data, boards)
+    return data
 
 
 def sigmoid(values: np.ndarray) -> np.ndarray:

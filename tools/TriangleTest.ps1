@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Prepare', 'Tune', 'Match', 'Calibrate', 'All', 'Status')]
+    [ValidateSet('Prepare', 'Tune', 'Match', 'Calibrate', 'All', 'Status', 'GnnMatch')]
     [string]$Stage,
 
     [Parameter(Mandatory = $true)]
@@ -10,6 +10,9 @@ param(
     [string]$Pgn,
     [string]$CurrentParams,
     [string]$Openings,
+    [string]$BaselineNnue,
+    [string]$BaselineMlpCheckpoint,
+    [string]$GraphCheckpoint,
     [string]$EnginePath,
     [string]$TunerPath,
     [string]$CutechessPath,
@@ -186,6 +189,319 @@ pass. The paired-match PGN is retained for independent Ordo analysis.
 if ($Stage -eq 'Status') {
     $manifest = Get-Manifest
     $manifest | Format-List
+    return
+}
+
+if ($Stage -eq 'GnnMatch') {
+    $Openings = Resolve-RequiredFile $Openings 'Openings'
+    $EnginePath = Resolve-RequiredFile $EnginePath 'EnginePath'
+    $CutechessPath = Resolve-RequiredFile $CutechessPath 'CutechessPath'
+    if (-not $BaselineNnue) {
+        $BaselineNnue = Join-Path $repoRoot 'nnue-training\data\bermuda.nnue'
+    }
+    if (-not $BaselineMlpCheckpoint) {
+        $BaselineMlpCheckpoint = Join-Path $repoRoot 'nnue-training\checkpoints-cpu\best.npz'
+    }
+    if (-not $GraphCheckpoint) {
+        $GraphCheckpoint = Join-Path $repoRoot 'neural\checkpoints\best.pt'
+    }
+    $BaselineNnue = Resolve-RequiredFile $BaselineNnue 'BaselineNnue'
+    $BaselineMlpCheckpoint = Resolve-RequiredFile $BaselineMlpCheckpoint 'BaselineMlpCheckpoint'
+    $GraphCheckpoint = Resolve-RequiredFile $GraphCheckpoint 'GraphCheckpoint'
+
+    if ((-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) -and (Test-Path -LiteralPath $runDir -PathType Container)) {
+        $preexistingFiles = @(Get-ChildItem -LiteralPath $runDir -Force)
+        if ($preexistingFiles.Count -gt 0) {
+            throw "Run directory already contains files without a matching manifest: $runDir"
+        }
+    }
+
+    $pythonCommand = Get-Command -Name $PythonPath -CommandType Application -ErrorAction Stop |
+        Select-Object -First 1
+    $PythonPath = $pythonCommand.Source
+    $pythonVersion = (& $PythonPath --version 2>&1 | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $pythonVersion.StartsWith('Python 3.')) {
+        throw "TriangleTest requires Python 3; '$PythonPath --version' returned '$pythonVersion'."
+    }
+
+    $prepareScript = Join-Path $PSScriptRoot 'prepare_gnn_match.py'
+    $verifyExportPath = Join-Path $runDir 'bermuda-mlp-gnn-epoch7.bmgnn'
+    New-Item -ItemType Directory -Force -Path $runDir | Out-Null
+    Push-Location $repoRoot
+    try {
+        $verificationOutput = & $PythonPath $prepareScript `
+            --graph-checkpoint $GraphCheckpoint `
+            --baseline-checkpoint $BaselineMlpCheckpoint `
+            --baseline-nnue $BaselineNnue `
+            --graph-export $verifyExportPath
+        if ($LASTEXITCODE -ne 0) {
+            throw "Epoch-7 model verification/export failed with exit code $LASTEXITCODE."
+        }
+        $verifiedModels = $verificationOutput | ConvertFrom-Json
+    } finally {
+        Pop-Location
+    }
+    if ($verifiedModels.graph_checkpoint_epoch -ne 7 -or $verifiedModels.residual_multiplier -ne 1.0) {
+        throw 'Verified graph model is not epoch 7 with residual multiplier 1.0.'
+    }
+
+    $pairsRequested = [int]($Games / 2)
+    $runType = 'bermuda-mlp-gnn-fixed-strength'
+    $environmentInfo = [ordered]@{
+        operatingSystem = [Environment]::OSVersion.VersionString
+        processorIdentifier = $env:PROCESSOR_IDENTIFIER
+        processorArchitecture = $env:PROCESSOR_ARCHITECTURE
+        logicalProcessorCount = [Environment]::ProcessorCount
+        powershellVersion = $PSVersionTable.PSVersion.ToString()
+        dotNetVersion = [Environment]::Version.ToString()
+        pythonExecutable = $PythonPath
+        pythonVersion = $pythonVersion
+    }
+    $configuration = [ordered]@{
+        experimentName = 'Bermuda MLP vs Bermuda MLP + GNN (epoch 7, lambda=1.0)'
+        runId = $RunId
+        games = $Games
+        openingPairs = $pairsRequested
+        seed = $Seed
+        openingPlies = $OpeningPlies
+        openingsPath = $Openings
+        openingsSha256 = Get-FileFingerprint $Openings
+        enginePath = $EnginePath
+        engineSha256 = Get-FileFingerprint $EnginePath
+        cutechessPath = $CutechessPath
+        cutechessSha256 = Get-FileFingerprint $CutechessPath
+        timeControl = $TimeControl
+        hashMb = $HashMb
+        moveOverhead = $MoveOverhead
+        concurrency = $Concurrency
+        engineThreads = 1
+        graphOptionScale = 1.0
+        nnuePath = $BaselineNnue
+        nnueSha256 = $verifiedModels.baseline_nnue_sha256
+        baselineMlpCheckpointPath = $BaselineMlpCheckpoint
+        baselineMlpCheckpointSha256 = $verifiedModels.baseline_mlp_checkpoint_sha256
+        graphCheckpointPath = $GraphCheckpoint
+        graphCheckpointSha256 = $verifiedModels.graph_checkpoint_sha256
+        graphCheckpointEpoch = 7
+        graphExportPath = $verifyExportPath
+        graphExportSha256 = $verifiedModels.graph_export_sha256
+        graphResidualMultiplier = 1.0
+        baselineConfiguration = @{
+            label = 'Bermuda MLP'
+            EvalFile = $BaselineNnue
+            GraphEval = $false
+            GraphEvalFile = ''
+            GraphScale = 1.0
+        }
+        candidateConfiguration = @{
+            label = 'Bermuda MLP + GNN (epoch 7, lambda=1.0)'
+            EvalFile = $BaselineNnue
+            GraphEval = $true
+            GraphEvalFile = $verifyExportPath
+            GraphScale = 1.0
+        }
+        engineThreadsOption = 'Bermuda has no UCI Threads option; both use the same single-threaded default.'
+        statisticalMethod = 'fixed 1000-pair paired analysis; no early SPRT stopping'
+        environment = $environmentInfo
+    }
+    $configurationJson = $configuration | ConvertTo-Json -Depth 8
+    $configurationFingerprint = [BitConverter]::ToString(
+        [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+            [System.Text.Encoding]::UTF8.GetBytes(($configuration | ConvertTo-Json -Compress -Depth 8))
+        )
+    ).Replace('-', '').ToLowerInvariant()
+    $configurationPath = Join-Path $runDir 'experiment-config.json'
+    $fixedJsonPath = Join-Path $runDir 'fixed-match-report.json'
+    $fixedMarkdownPath = Join-Path $runDir 'fixed-match-report.md'
+    $metadataPath = Join-Path $runDir 'report-metadata.json'
+
+    if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
+        $manifest = Get-Manifest
+        if ($manifest.runType -ne $runType) {
+            throw "RunId '$RunId' belongs to '$($manifest.runType)'; use a new RunId."
+        }
+        if ($manifest.configurationFingerprint -ne $configurationFingerprint) {
+            throw 'GNN match configuration differs from the existing manifest; use a new RunId.'
+        }
+    } else {
+        [System.IO.File]::WriteAllText($configurationPath, $configurationJson, [System.Text.Encoding]::UTF8)
+        [System.IO.File]::WriteAllText($metadataPath, $configurationJson, [System.Text.Encoding]::UTF8)
+        $manifest = [ordered]@{
+            schema = 1
+            runType = $runType
+            runId = $RunId
+            created = (Get-Date).ToString('o')
+            configurationFingerprint = $configurationFingerprint
+            configuration = $configuration
+            completedPairs = 0
+            pairSha256 = @()
+            completedGames = 0
+            reportJson = $fixedJsonPath
+            reportMarkdown = $fixedMarkdownPath
+        }
+        Save-Manifest
+    }
+
+    $benchmarkExecutable = Join-Path $repoRoot 'build\windows\x64\release\graph_eval_benchmark.exe'
+    $benchmarkOutputPath = Join-Path $runDir 'performance-benchmark.txt'
+    $performanceBenchmark = $null
+    if (Test-Path -LiteralPath $benchmarkExecutable -PathType Leaf) {
+        if (Test-Path -LiteralPath $benchmarkOutputPath -PathType Leaf) {
+            $benchmarkText = Get-Content -LiteralPath $benchmarkOutputPath -Raw
+        } else {
+            $benchmarkOutput = & $benchmarkExecutable $BaselineNnue $verifyExportPath 1000 4 1 2>&1
+            $benchmarkExitCode = $LASTEXITCODE
+            $benchmarkText = $benchmarkOutput | Out-String
+            if ($benchmarkExitCode -ne 0) {
+                throw "Graph evaluator benchmark failed with exit code $benchmarkExitCode."
+            }
+            [System.IO.File]::WriteAllText(
+                $benchmarkOutputPath,
+                $benchmarkText,
+                [System.Text.Encoding]::UTF8
+            )
+        }
+
+        $encodingMatch = [regex]::Match($benchmarkText, 'graph encoding: [0-9.eE+-]+ ms total, ([0-9.eE+-]+) us/op')
+        $inferenceMatch = [regex]::Match($benchmarkText, 'graph inference: [0-9.eE+-]+ ms total, ([0-9.eE+-]+) us/op')
+        $combinedMatch = [regex]::Match($benchmarkText, 'combined evaluation: [0-9.eE+-]+ ms total, ([0-9.eE+-]+) us/op')
+        $searchMatch = [regex]::Match($benchmarkText, 'full search: ([0-9.eE+-]+) ms total, ([0-9.eE+-]+) ms/search, depth (\d+), (\d+) nodes')
+        if ($encodingMatch.Success -and $inferenceMatch.Success -and $combinedMatch.Success -and $searchMatch.Success) {
+            $searchTotalMs = [double]::Parse($searchMatch.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+            $searchNodes = [double]::Parse($searchMatch.Groups[4].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+            $searchNps = if ($searchTotalMs -gt 0) { $searchNodes * 1000.0 / $searchTotalMs } else { $null }
+            $performanceBenchmark = [ordered]@{
+                iterations = 1000
+                graphEncodingUsPerOp = [double]::Parse($encodingMatch.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+                graphInferenceUsPerOp = [double]::Parse($inferenceMatch.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+                combinedEvaluationUsPerOp = [double]::Parse($combinedMatch.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+                searchDepth = [int]$searchMatch.Groups[3].Value
+                searchMillisecondsPerFourPositions = [double]::Parse($searchMatch.Groups[2].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+                searchNodes = [long]$searchNodes
+                searchNodesPerSecond = $searchNps
+                rawOutputPath = $benchmarkOutputPath
+            }
+        }
+    }
+    $reportMetadata = [ordered]@{
+        experiment = $configuration
+        recordedAt = (Get-Date).ToString('o')
+        performanceBenchmark = $performanceBenchmark
+        performanceBenchmarkOutput = $benchmarkOutputPath
+    }
+    [System.IO.File]::WriteAllText(
+        $metadataPath,
+        ($reportMetadata | ConvertTo-Json -Depth 10),
+        [System.Text.Encoding]::UTF8
+    )
+
+    if (@($manifest.pairSha256).Count -ne [int]$manifest.completedPairs) {
+        throw 'GNN manifest pair hashes do not match the completed-pair count.'
+    }
+    for ($pairIndex = 1; $pairIndex -le [int]$manifest.completedPairs; $pairIndex++) {
+        $existingPair = Join-Path $matchDir ('pair-{0:D5}.pgn' -f $pairIndex)
+        if ($manifest.pairSha256[$pairIndex - 1] -ne (Get-FileFingerprint $existingPair)) {
+            throw "Completed GNN pair $pairIndex changed since it was recorded."
+        }
+    }
+
+    New-Item -ItemType Directory -Force -Path $matchDir | Out-Null
+    while ($manifest.completedPairs -lt $pairsRequested) {
+        $pairNumber = [int]$manifest.completedPairs + 1
+        $batchPairCount = [Math]::Min($PairsPerBatch, $pairsRequested - $pairNumber + 1)
+        $batchLastPair = $pairNumber + $batchPairCount - 1
+        $openingSeed = [int]((([long]$Seed + $pairNumber - 1) % 2147483647) + 1)
+        $batchName = 'gnn-batch-{0:D5}-{1:D5}.pgn' -f $pairNumber, $batchLastPair
+        $batchPath = Join-Path $matchDir $batchName
+        if (Test-Path -LiteralPath $batchPath) {
+            $archive = Join-Path $matchDir ('retry-gnn-{0:D5}-{1:D5}-{2}.pgn' -f
+                $pairNumber, $batchLastPair, (Get-Date -Format 'yyyyMMddHHmmss'))
+            Move-Item -LiteralPath $batchPath -Destination $archive
+        }
+
+        $matchArgs = @(
+            '-srand', "$openingSeed",
+            '-engine', 'name=Baseline', "cmd=$EnginePath", 'proto=uci',
+                "option.EvalFile=$BaselineNnue", 'option.GraphEval=false', 'option.GraphScale=1.0',
+                "option.Hash=$HashMb", "option.MoveOverhead=$MoveOverhead",
+            '-engine', 'name=Candidate', "cmd=$EnginePath", 'proto=uci',
+                "option.EvalFile=$BaselineNnue", "option.GraphEvalFile=$verifyExportPath",
+                'option.GraphScale=1.0', 'option.GraphEval=true',
+                "option.Hash=$HashMb", "option.MoveOverhead=$MoveOverhead",
+            '-each', "tc=$TimeControl",
+            '-openings', "file=$Openings", 'format=pgn', 'order=random',
+                "plies=$OpeningPlies", 'policy=round',
+            '-games', '2',
+            '-rounds', "$batchPairCount",
+            '-concurrency', "$Concurrency",
+            '-recover',
+            '-pgnout', $batchPath
+        )
+        $logPath = Join-Path $matchDir ('gnn-batch-{0:D5}-{1:D5}.log' -f $pairNumber, $batchLastPair)
+        $previousErrorPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        & $CutechessPath @matchArgs 2>&1 | Tee-Object -FilePath $logPath
+        $cutechessExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $previousErrorPreference
+        if ($cutechessExitCode -ne 0) {
+            throw "Cutechess failed in GNN batch $pairNumber-$batchLastPair with exit code $cutechessExitCode. Resume with the same RunId."
+        }
+        if (-not (Test-Path -LiteralPath $batchPath -PathType Leaf)) {
+            throw "Cutechess did not write the expected GNN PGN batch $pairNumber-$batchLastPair."
+        }
+
+        $splitArgs = @(
+            $sprtAnalyzerPath,
+            '--split-pgn', $batchPath,
+            '--output-dir', $matchDir,
+            '--first-pair', "$pairNumber",
+            '--expected-pairs', "$batchPairCount",
+            '--opening-plies', "$OpeningPlies"
+        )
+        & $PythonPath @splitArgs
+        if ($LASTEXITCODE -ne 0) {
+            throw "TriangleTest could not validate the paired GNN batch $pairNumber-$batchLastPair."
+        }
+        for ($currentPair = $pairNumber; $currentPair -le $batchLastPair; $currentPair++) {
+            $pairPath = Join-Path $matchDir ('pair-{0:D5}.pgn' -f $currentPair)
+            $manifest.completedPairs = $currentPair
+            $manifest.completedGames = 2 * $currentPair
+            $manifest.pairSha256 = @($manifest.pairSha256) + @(Get-FileFingerprint $pairPath)
+            Save-Manifest
+            Write-Output "Recorded GNN opening pair $currentPair of $pairsRequested (no early stopping)."
+        }
+    }
+
+    $builder = New-Object System.Text.StringBuilder
+    for ($pairIndex = 1; $pairIndex -le [int]$manifest.completedPairs; $pairIndex++) {
+        $pairPath = Join-Path $matchDir ('pair-{0:D5}.pgn' -f $pairIndex)
+        [void]$builder.AppendLine((Get-Content -LiteralPath $pairPath -Raw).TrimEnd())
+        [void]$builder.AppendLine()
+    }
+    [System.IO.File]::WriteAllText($aggregatePgn, $builder.ToString(), [System.Text.Encoding]::UTF8)
+
+    $reportArgs = @(
+        $sprtAnalyzerPath,
+        '--fixed-report',
+        '--matches-dir', $matchDir,
+        '--completed-pairs', "$pairsRequested",
+        '--opening-plies', "$OpeningPlies",
+        '--report-json', $fixedJsonPath,
+        '--report-markdown', $fixedMarkdownPath,
+        '--metadata-json', $metadataPath
+    )
+    & $PythonPath @reportArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Fixed-sample report generation failed with exit code $LASTEXITCODE."
+    }
+    $manifest | Add-Member -NotePropertyName completedAt -NotePropertyValue (Get-Date).ToString('o') -Force
+    $manifest | Add-Member -NotePropertyName fixedReportJsonSha256 -NotePropertyValue (Get-FileFingerprint $fixedJsonPath) -Force
+    $manifest | Add-Member -NotePropertyName pairedPgnSha256 -NotePropertyValue (Get-FileFingerprint $aggregatePgn) -Force
+    Save-Manifest
+    Write-Output "Completed $Games games across $pairsRequested paired openings."
+    Write-Output "PGN: $aggregatePgn"
+    Write-Output "JSON report: $fixedJsonPath"
+    Write-Output "Markdown report: $fixedMarkdownPath"
     return
 }
 

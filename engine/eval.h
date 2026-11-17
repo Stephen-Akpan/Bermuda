@@ -39,6 +39,15 @@ Score evaluate(const Position& pos);
 Score evaluate(const Position& pos, const NNUE::Accumulator& accumulator);
 Score evaluate(const Position& pos, const Parameters& parameters);
 
+bool load_graph_model(const std::string& path, std::string& error);
+void clear_graph_model();
+bool graph_model_loaded();
+bool graph_residual_enabled();
+f32 graph_residual_scale();
+bool set_graph_residual_enabled(bool enabled, std::string& error);
+bool set_graph_residual_scale(f32 scale, std::string& error);
+void set_graph_inference_reordered(bool enabled);
+
 bool load_parameters(const std::string& path, std::string& error);
 bool load_parameters(const std::string& path, Parameters& parameters,
                      std::string& error);

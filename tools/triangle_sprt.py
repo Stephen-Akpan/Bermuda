@@ -107,7 +107,274 @@ def read_pair(path):
     return _validate_pair(read_games(path), path)
 
 
-def split_pgn(path, output_dir, first_pair, expected_pairs):
+def _move_tokens(movetext):
+    text = re.sub(r"\[[^\]]*\]", " ", movetext)
+    text = re.sub(r"\{[^}]*\}|;[^\r\n]*", " ", text)
+    while re.search(r"\([^()]*\)", text):
+        text = re.sub(r"\([^()]*\)", " ", text)
+    text = re.sub(r"\$\d+", " ", text)
+    text = re.sub(r"\d+\.(?:\.\.)?", " ", text)
+    return [
+        token.rstrip("!?+#")
+        for token in text.split()
+        if token not in {"1-0", "0-1", "1/2-1/2", "*", "e.p."}
+    ]
+
+
+def _validate_opening_prefix(records, opening_plies, label):
+    if opening_plies is None:
+        return
+    if opening_plies < 1:
+        raise ValueError("opening plies must be positive")
+    first_moves = _move_tokens(records[0][1])
+    second_moves = _move_tokens(records[1][1])
+    if len(first_moves) < opening_plies or len(second_moves) < opening_plies:
+        raise ValueError(f"{label}: paired games are shorter than the opening prefix")
+    if first_moves[:opening_plies] != second_moves[:opening_plies]:
+        raise ValueError(f"{label}: paired games do not share the configured opening prefix")
+
+
+def _count_movetext_plies(movetext):
+    text = re.sub(r"\{[^}]*\}|;[^\r\n]*|\([^()]*\)", " ", movetext)
+    text = re.sub(r"\$\d+", " ", text)
+    text = re.sub(r"\[.*?\]", " ", text)
+    text = re.sub(r"\d+\.(?:\.\.)?", " ", text)
+    return sum(token not in {"1-0", "0-1", "1/2-1/2", "*"} for token in text.split())
+
+
+def _termination_category(termination):
+    if not termination:
+        return "unavailable"
+    normalized = termination.lower()
+    if "time" in normalized and "forfeit" in normalized:
+        return "time_forfeit"
+    if "illegal" in normalized:
+        return "illegal_move"
+    if any(word in normalized for word in ("crash", "disconnect", "abandon")):
+        return "crash_or_disconnect"
+    if any(word in normalized for word in ("adjudicat", "adjudication")):
+        return "adjudication"
+    if any(word in normalized for word in ("normal", "checkmate", "resign", "stalemate", "draw")):
+        return "normal_or_adjudicated"
+    return "other"
+
+
+def analyze_fixed_matches(matches_dir, completed_pairs, metadata=None):
+    """Analyze a fixed paired sample without applying SPRT early stopping."""
+    matches_dir = Path(matches_dir)
+    if completed_pairs < 1:
+        raise ValueError("a fixed match report requires at least one completed pair")
+
+    candidate_wins = candidate_draws = candidate_losses = 0
+    candidate_white_points = candidate_white_games = 0.0
+    candidate_black_points = candidate_black_games = 0.0
+    pair_scores = []
+    ply_counts = []
+    duration_seconds = []
+    termination_counts = {}
+    pair_bins = [0, 0, 0, 0, 0]
+    opening_plies = None
+    if metadata:
+        opening_plies = metadata.get("experiment", {}).get("openingPlies")
+
+    for pair_number in range(1, completed_pairs + 1):
+        path = matches_dir / f"pair-{pair_number:05d}.pgn"
+        records = _read_pgn_records(path)
+        pair_score = _validate_pair([tags for tags, _ in records], path)
+        _validate_opening_prefix(records, opening_plies, path)
+        pair_bins[pair_score] += 1
+        pair_points = 0.0
+
+        for tags, movetext in records:
+            score = _candidate_score(tags, path, 1)
+            pair_points += score
+            if tags["White"] == "Candidate":
+                candidate_white_points += score
+                candidate_white_games += 1
+            else:
+                candidate_black_points += score
+                candidate_black_games += 1
+
+            if score == 1.0:
+                candidate_wins += 1
+            elif score == 0.5:
+                candidate_draws += 1
+            else:
+                candidate_losses += 1
+
+            ply_count = tags.get("PlyCount")
+            try:
+                ply_counts.append(int(ply_count) if ply_count is not None else _count_movetext_plies(movetext))
+            except ValueError:
+                pass
+            duration = tags.get("GameDuration")
+            if duration:
+                fields = duration.split(":")
+                try:
+                    seconds = sum(float(field) * (60 ** position) for position, field in enumerate(reversed(fields)))
+                    duration_seconds.append(seconds)
+                except ValueError:
+                    pass
+            category = _termination_category(tags.get("Termination"))
+            termination_counts[category] = termination_counts.get(category, 0) + 1
+
+        pair_scores.append(pair_points / 2.0)
+
+    completed_games = completed_pairs * 2
+    score = (candidate_wins + 0.5 * candidate_draws) / completed_games
+    if 0.0 < score < 1.0:
+        elo_difference = 400.0 * math.log10(score / (1.0 - score))
+    else:
+        elo_difference = None
+
+    pair_mean = sum(pair_scores) / len(pair_scores)
+    pair_variance = sum((value - pair_mean) ** 2 for value in pair_scores) / max(1, len(pair_scores) - 1)
+    score_standard_error = math.sqrt(pair_variance / len(pair_scores))
+    score_lower = max(0.0, score - 1.96 * score_standard_error)
+    score_upper = min(1.0, score + 1.96 * score_standard_error)
+
+    def to_elo(value):
+        if value <= 0.0 or value >= 1.0:
+            return None
+        return 400.0 * math.log10(value / (1.0 - value))
+
+    elo_lower = to_elo(score_lower)
+    elo_upper = to_elo(score_upper)
+    elo_uncertainty = (
+        max(elo_difference - elo_lower, elo_upper - elo_difference)
+        if elo_difference is not None and elo_lower is not None and elo_upper is not None
+        else None
+    )
+    statistically_convincing = bool(elo_lower is not None and elo_lower > 0.0)
+    llr_zero_vs_five = calculate_llr(pair_bins, elo0=0.0, elo1=5.0)
+
+    report = {
+        "completed_games": completed_games,
+        "completed_pairs": completed_pairs,
+        "candidate": "Bermuda MLP + GNN (epoch 7, \u03bb=1.0)",
+        "baseline": "Bermuda MLP",
+        "candidate_wins": candidate_wins,
+        "candidate_draws": candidate_draws,
+        "candidate_losses": candidate_losses,
+        "score": score,
+        "score_percent": 100.0 * score,
+        "elo_difference": elo_difference,
+        "elo_uncertainty_95": elo_uncertainty,
+        "score_standard_error_paired": score_standard_error,
+        "score_ci95_paired": [score_lower, score_upper],
+        "elo_ci95_paired": [elo_lower, elo_upper],
+        "statistically_convincing_improvement": statistically_convincing,
+        "statistical_method": "fixed-sample paired-pair-score standard error, normal 95% interval, Elo logit transform",
+        "sprt_llr_h0_0_vs_h1_5_at_fixed_endpoint": llr_zero_vs_five,
+        "sprt_stopping_applied": False,
+        "white_score_percent_candidate": (
+            100.0 * candidate_white_points / candidate_white_games
+            if candidate_white_games else None
+        ),
+        "black_score_percent_candidate": (
+            100.0 * candidate_black_points / candidate_black_games
+            if candidate_black_games else None
+        ),
+        "average_game_length_plies": sum(ply_counts) / len(ply_counts) if ply_counts else None,
+        "average_game_duration_seconds": (
+            sum(duration_seconds) / len(duration_seconds) if duration_seconds else None
+        ),
+        "termination_counts": termination_counts,
+        "abnormal_terminations": (
+            None if termination_counts.get("unavailable", 0) > 0 else sum(
+                count for category, count in termination_counts.items()
+                if category != "normal_or_adjudicated"
+            )
+        ),
+        "average_nodes_per_move": None,
+        "average_nodes_per_game": None,
+        "average_evaluation_time": None,
+        "average_nodes_per_second": None,
+        "unavailable_metrics": [
+            "nodes per move/game, evaluation time, and nodes per second are not present in the retained PGNs"
+        ],
+        "pentanomial_counts": pair_bins,
+    }
+    if metadata:
+        report["experiment"] = metadata
+        if metadata.get("performanceBenchmark"):
+            report["performance_benchmark"] = metadata["performanceBenchmark"]
+    return report
+
+
+def write_fixed_report(report, json_path, markdown_path):
+    json_path = Path(json_path)
+    markdown_path = Path(markdown_path)
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    markdown_path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+
+    elo_text = "not estimable at 0% or 100% score"
+    if report["elo_difference"] is not None and report["elo_uncertainty_95"] is not None:
+        elo_text = f"{report['elo_difference']:.2f} +/- {report['elo_uncertainty_95']:.2f} Elo (approx. 95% paired CI)"
+    elif report["elo_difference"] is not None:
+        elo_text = (
+            f"{report['elo_difference']:.2f} Elo; paired 95% interval reaches a score boundary, "
+            "so finite Elo uncertainty is unavailable"
+        )
+    rows = [
+        "# Bermuda MLP + GNN Epoch 7 Match Report",
+        "",
+        f"- Candidate: {report['candidate']}",
+        f"- Baseline: {report['baseline']}",
+        f"- Games/pairs: {report['completed_games']}/{report['completed_pairs']}",
+        f"- Candidate W-D-L: {report['candidate_wins']}-{report['candidate_draws']}-{report['candidate_losses']}",
+        f"- Score: {report['score_percent']:.2f}%",
+        f"- Elo estimate: {elo_text}",
+        f"- Statistically convincing improvement (95% paired CI above 0): {report['statistically_convincing_improvement']}",
+        f"- Candidate score as White: {report['white_score_percent_candidate']}",
+        f"- Candidate score as Black: {report['black_score_percent_candidate']}",
+        f"- Average game length (plies): {report['average_game_length_plies']}",
+        f"- Average game duration (seconds): {report['average_game_duration_seconds']}",
+        f"- Terminations: {json.dumps(report['termination_counts'], sort_keys=True)}",
+        "- Nodes/evaluation-time/NPS metrics: unavailable from existing PGN outputs",
+        "- SPRT stopping: not applied; all requested pairs are analyzed",
+        "",
+    ]
+    experiment = report.get("experiment") or {}
+    configuration = experiment.get("experiment", experiment)
+    if configuration.get("experimentName"):
+        rows.extend([
+            "## Reproducibility",
+            "",
+            f"- Experiment: {configuration.get('experimentName')}",
+            f"- Run ID: {configuration.get('runId')}",
+            f"- Recorded: {experiment.get('recordedAt')}",
+            f"- Time control / games / seed: {configuration.get('timeControl')} / "
+            f"{configuration.get('games')} / {configuration.get('seed')}",
+            f"- Hash / concurrency / threads: {configuration.get('hashMb')} MB / "
+            f"{configuration.get('concurrency')} / {configuration.get('engineThreads')}",
+            f"- Openings SHA-256: {configuration.get('openingsSha256')}",
+            f"- Baseline NNUE SHA-256: {configuration.get('nnueSha256')}",
+            f"- Graph checkpoint: {configuration.get('graphCheckpointPath')} "
+            f"(epoch {configuration.get('graphCheckpointEpoch')}, "
+            f"SHA-256 {configuration.get('graphCheckpointSha256')})",
+            f"- Graph export SHA-256: {configuration.get('graphExportSha256')}",
+            f"- Residual multiplier / runtime scale: {configuration.get('graphResidualMultiplier')} / "
+            f"{configuration.get('graphOptionScale')}",
+            "",
+        ])
+    benchmark = report.get("performance_benchmark")
+    if benchmark:
+        rows.extend([
+            "## Engine Microbenchmark",
+            "",
+            f"- Graph encoding: {benchmark.get('graphEncodingUsPerOp')} us/op",
+            f"- Graph inference: {benchmark.get('graphInferenceUsPerOp')} us/op",
+            f"- Combined static evaluation: {benchmark.get('combinedEvaluationUsPerOp')} us/op",
+            f"- Full-search benchmark: depth {benchmark.get('searchDepth')}, "
+            f"{benchmark.get('searchNodesPerSecond')} nodes/s",
+            "",
+        ])
+    markdown_path.write_text("\n".join(rows), encoding="utf-8")
+
+
+def split_pgn(path, output_dir, first_pair, expected_pairs, opening_plies=None):
     if first_pair < 1 or expected_pairs < 1:
         raise ValueError("first-pair and expected-pairs must be positive")
     games = _read_pgn_records(path)
@@ -122,6 +389,7 @@ def split_pgn(path, output_dir, first_pair, expected_pairs):
         for offset in range(expected_pairs):
             records = games[offset * 2 : offset * 2 + 2]
             _validate_pair([tags for tags, _ in records], path)
+            _validate_opening_prefix(records, opening_plies, path)
             pair_number = first_pair + offset
             target = output_dir / f"pair-{pair_number:05d}.pgn"
             temporary = target.with_suffix(".pgn.tmp")
@@ -393,6 +661,11 @@ def main(argv=None):
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--first-pair", type=int)
     parser.add_argument("--expected-pairs", type=int)
+    parser.add_argument("--opening-plies", type=int)
+    parser.add_argument("--fixed-report", action="store_true")
+    parser.add_argument("--report-json", type=Path)
+    parser.add_argument("--report-markdown", type=Path)
+    parser.add_argument("--metadata-json", type=Path)
     args = parser.parse_args(argv)
     try:
         if args.split_pgn:
@@ -405,7 +678,20 @@ def main(argv=None):
                 args.output_dir,
                 args.first_pair,
                 args.expected_pairs,
+                opening_plies=args.opening_plies,
             )
+            return 0
+        if args.fixed_report:
+            if args.matches_dir is None or args.completed_pairs is None:
+                raise ValueError("fixed report requires --matches-dir and --completed-pairs")
+            if args.report_json is None or args.report_markdown is None:
+                raise ValueError("fixed report requires --report-json and --report-markdown")
+            metadata = None
+            if args.metadata_json is not None:
+                metadata = json.loads(args.metadata_json.read_text(encoding="utf-8-sig"))
+            report = analyze_fixed_matches(args.matches_dir, args.completed_pairs, metadata)
+            write_fixed_report(report, args.report_json, args.report_markdown)
+            print(json.dumps(report, sort_keys=True))
             return 0
         if (
             args.matches_dir is None

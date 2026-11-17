@@ -4,12 +4,14 @@ import unittest
 from pathlib import Path
 
 from triangle_sprt import (
+    analyze_fixed_matches,
     analyze_matches,
     calculate_llr,
     read_pair,
     split_pgn,
     sprt_boundaries,
     update_sprt,
+    write_fixed_report,
 )
 
 
@@ -72,6 +74,22 @@ class TriangleSprtTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must contain"):
                 split_pgn(malformed, output, first_pair=6, expected_pairs=2)
             self.assertFalse((output / "pair-00006.pgn").exists())
+
+    def test_batch_rejects_reversed_color_pair_with_different_opening_prefix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            batch = root / "batch.pgn"
+            batch.write_text(
+                '[White "Candidate"]\n[Black "Baseline"]\n[Result "1-0"]\n\n'
+                '1. e4 e5 2. Nf3 Nc6 1-0\n\n'
+                '[White "Baseline"]\n[Black "Candidate"]\n[Result "0-1"]\n\n'
+                '1. d4 d5 2. c4 e6 0-1\n',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "opening prefix"):
+                split_pgn(batch, root / "matches", first_pair=1,
+                          expected_pairs=1, opening_plies=4)
+            self.assertFalse((root / "matches" / "pair-00001.pgn").exists())
 
     def test_sprt_decisions_and_dynamic_overshoot(self):
         counts = [0, 0, 0, 0, 0]
@@ -162,6 +180,70 @@ class TriangleSprtTests(unittest.TestCase):
             result = analyze_matches(matches, completed_pairs=1, max_pairs=1)
             decoded = json.loads(json.dumps(result))
             self.assertEqual(decoded["status"], "INCONCLUSIVE")
+
+    def test_fixed_report_uses_pair_level_score_and_writes_outputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            matches = root / "matches"
+            matches.mkdir()
+            for pair_number in range(1, 21):
+                result_cycle = pair_number % 4
+                if result_cycle == 0:
+                    results = ["1-0", "0-1"]
+                elif result_cycle == 1:
+                    results = ["1/2-1/2", "1/2-1/2"]
+                elif result_cycle == 2:
+                    results = ["1-0", "1/2-1/2"]
+                else:
+                    results = ["0-1", "1-0"]
+                write_pair(matches / f"pair-{pair_number:05d}.pgn", results)
+
+            report = analyze_fixed_matches(matches, 20, {"seed": 14})
+            self.assertEqual(report["completed_games"], 40)
+            self.assertEqual(report["candidate_wins"], 15)
+            self.assertEqual(report["candidate_draws"], 15)
+            self.assertEqual(report["candidate_losses"], 10)
+            self.assertAlmostEqual(report["score"], 0.5625)
+            self.assertAlmostEqual(report["elo_difference"], 43.66, places=1)
+            self.assertIsNotNone(report["elo_uncertainty_95"])
+            self.assertEqual(report["average_game_length_plies"], 2.0)
+            self.assertIsNone(report["average_nodes_per_game"])
+            self.assertFalse(report["sprt_stopping_applied"])
+
+            json_path = root / "report.json"
+            markdown_path = root / "report.md"
+            write_fixed_report(report, json_path, markdown_path)
+            self.assertEqual(json.loads(json_path.read_text())["score"], report["score"])
+            self.assertIn(
+                "Bermuda MLP + GNN (epoch 7, \u03bb=1.0)",
+                markdown_path.read_text(encoding="utf-8"),
+            )
+
+    def test_fixed_report_handles_extreme_score_without_non_finite_json(self):
+        with tempfile.TemporaryDirectory() as directory:
+            matches = Path(directory)
+            write_pair(matches / "pair-00001.pgn", ["1-0", "0-1"])
+            report = analyze_fixed_matches(matches, 1)
+            self.assertEqual(report["score"], 1.0)
+            self.assertIsNone(report["elo_difference"])
+            self.assertIsNone(report["elo_uncertainty_95"])
+            self.assertEqual(report["score_ci95_paired"], [1.0, 1.0])
+            self.assertIsNone(json.loads(json.dumps(report, allow_nan=False))["elo_difference"])
+
+    def test_fixed_markdown_handles_score_interval_reaching_boundary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            matches = root / "matches"
+            matches.mkdir()
+            write_pair(matches / "pair-00001.pgn", ["1-0", "0-1"])
+            write_pair(matches / "pair-00002.pgn", ["1/2-1/2", "1/2-1/2"])
+            report = analyze_fixed_matches(matches, 2)
+            json_path = root / "report.json"
+            markdown_path = root / "report.md"
+
+            write_fixed_report(report, json_path, markdown_path)
+
+            self.assertIn("finite Elo uncertainty is unavailable", markdown_path.read_text())
 
 
 if __name__ == "__main__":

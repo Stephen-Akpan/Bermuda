@@ -156,6 +156,10 @@ bool is_loaded() {
     return network.loaded();
 }
 
+f32 eval_scale() {
+    return network.loaded() ? network.eval_scale : 0.0f;
+}
+
 void refresh(const Position& pos, Accumulator& accumulator) {
     accumulator = Accumulator{};
     if (!network.loaded())
@@ -248,12 +252,9 @@ void update_for_move(const Position& pos, Move move,
     child.valid = true;
 }
 
-Score evaluate(const Position& pos, const Accumulator& accumulator) {
-    if (!network.loaded())
-        return 0;
-    if (!accumulator.valid || accumulator.generation != network.generation)
-        return evaluate(pos);
+namespace {
 
+f64 accumulator_output(const Position& pos, const Accumulator& accumulator) {
     const f32* stm = accumulator.values[pos.side_to_move()];
     const f32* ntm = accumulator.values[flip(pos.side_to_move())];
 
@@ -265,7 +266,41 @@ Score evaluate(const Position& pos, const Accumulator& accumulator) {
         output += ntm_activation * ntm_activation
                 * network.output_weights[network.hidden_size + neuron];
     }
+    return output;
+}
 
+} // namespace
+
+f32 predict_white_probability(const Position& pos,
+                              const Accumulator& accumulator) {
+    if (!network.loaded())
+        return 0.5f;
+
+    Accumulator refreshed;
+    const Accumulator* activeAccumulator = &accumulator;
+    if (!accumulator.valid || accumulator.generation != network.generation) {
+        refresh(pos, refreshed);
+        activeAccumulator = &refreshed;
+    }
+
+    const f64 logit = std::clamp(accumulator_output(pos, *activeAccumulator), -40.0, 40.0);
+    const f32 stmProbability = static_cast<f32>(1.0 / (1.0 + std::exp(-logit)));
+    return pos.side_to_move() == WHITE ? stmProbability : 1.0f - stmProbability;
+}
+
+f32 predict_white_probability(const Position& pos) {
+    Accumulator accumulator;
+    refresh(pos, accumulator);
+    return predict_white_probability(pos, accumulator);
+}
+
+Score evaluate(const Position& pos, const Accumulator& accumulator) {
+    if (!network.loaded())
+        return 0;
+    if (!accumulator.valid || accumulator.generation != network.generation)
+        return evaluate(pos);
+
+    const f64 output = accumulator_output(pos, accumulator);
     const f64 centipawns = output * network.eval_scale;
     return static_cast<Score>(std::lround(std::clamp(centipawns, -29000.0, 29000.0)));
 }
