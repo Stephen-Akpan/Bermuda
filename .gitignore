@@ -22,6 +22,8 @@ __pycache__/
 /nnue-training/data/
 /nnue-training/checkpoints-cpu/
 /nnue-training/Untitled-1.sh
+/neural/cache/
+/neural/checkpoints/
 
 # Prerequisites
 *.d
