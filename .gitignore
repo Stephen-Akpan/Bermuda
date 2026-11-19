@@ -19,6 +19,7 @@ __pycache__/
 # NNUE training outputs (keep scripts and documentation versionable)
 /nnue-training/.venv/
 /nnue-training/__pycache__/
+/nnue-training/tools/stockfish-19/
 /nnue-training/data/
 /nnue-training/checkpoints-cpu/
 /nnue-training/Untitled-1.sh

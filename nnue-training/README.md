@@ -76,6 +76,44 @@ Tune filters with `--min-depth`, `--max-score-cp`, and `--min-ply`; set
 `--split-ply` to match the opening depth, and use `--validation-percent` and
 `--seed` for a reproducible split.
 
+## Relabel with Stockfish 19
+
+Download the [official Stockfish 19 Windows x86-64 universal
+release](https://github.com/official-stockfish/Stockfish/releases/tag/sf_19).
+The release archive is
+`stockfish-windows-x86-64-universal.zip` (SHA-256
+`3c8bf1f9ea66a09350a40df4f632288285ac206d99f33ab5842c408fc30b48a7`). Verify
+the archive digest, then place `stockfish-windows-x86-64-universal.exe` under
+`tools/stockfish-19/`. The universal binary selects supported CPU instructions
+automatically. The engine binary is a local tool and is ignored by Git.
+
+The relabeler reads the existing `FEN | score | result` dataset, analyses
+positions independently at fixed depth, writes white-relative Stockfish scores
+to a new file, and preserves each result field. By default it selects all rows;
+`--max-positions` chooses a reproducible random subset. It skips mate and
+outlier scores, never overwrites the input, and writes a JSON run manifest
+alongside the output. Depth 8 is a quick pipeline pilot; depth 10 costs more
+time but gives Stockfish a larger search budget.
+
+Example for a 1,000-position validation pilot:
+
+```powershell
+.\.venv\Scripts\python.exe .\relabel_stockfish.py `
+  --input .\data\validation.txt `
+  --output .\data\validation-stockfish19-depth8-1000.txt `
+  --depth 8 --max-positions 1000 --threads 1
+```
+
+Use `--depth 10` for the deeper run, or omit `--max-positions` to label the
+entire validation split. Keep the validation output separate from training
+data, and keep the original file unchanged. The manifest records engine
+identity and binary hash, input hash, depth, resources, counts, and elapsed
+time.
+
+Once labels are checked, use the same Stockfish-labeled train and validation
+files for MLP training, then use that trained MLP checkpoint as the frozen
+baseline for GNN residual training.
+
 ## Train
 
 First verify the pipeline with a small subset and one epoch:
